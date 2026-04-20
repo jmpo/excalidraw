@@ -1,78 +1,107 @@
 import { loginIcon } from "@excalidraw/excalidraw/components/icons";
-import { POINTER_EVENTS } from "@excalidraw/common";
-import { useI18n } from "@excalidraw/excalidraw/i18n";
 import { WelcomeScreen } from "@excalidraw/excalidraw/index";
 import React from "react";
 
-import { isExcalidrawPlusSignedUser } from "../app_constants";
+// ── Shared EduDraw logo — used in WelcomeScreen and footer ────────────────────
+export const EduDrawLogo = () => (
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      fontFamily: '"Excalifont", cursive',
+      fontSize: 28,
+      fontWeight: 400,
+      color: "#6128ff",
+    }}
+  >
+    <svg width="32" height="32" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#6128ff" />
+      <path
+        d="M6 20L11 13L15 17L22 9"
+        stroke="white"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+    EduDraw
+  </div>
+);
 
+// ── Shared menu items — base set for all users ────────────────────────────────
+const BaseMenuItems = ({
+  isCollabEnabled,
+  onCollabDialogOpen,
+}: {
+  isCollabEnabled: boolean;
+  onCollabDialogOpen: () => void;
+}) => (
+  <>
+    <WelcomeScreen.Center.MenuItemLoadScene />
+    <WelcomeScreen.Center.MenuItemHelp />
+    {isCollabEnabled && (
+      <WelcomeScreen.Center.MenuItemLiveCollaborationTrigger
+        onSelect={onCollabDialogOpen}
+      />
+    )}
+  </>
+);
+
+// ── AppWelcomeScreen ──────────────────────────────────────────────────────────
 export const AppWelcomeScreen: React.FC<{
   onCollabDialogOpen: () => any;
   isCollabEnabled: boolean;
-}> = React.memo((props) => {
-  const { t } = useI18n();
-  let headingContent;
-
-  if (isExcalidrawPlusSignedUser) {
-    headingContent = t("welcomeScreen.app.center_heading_plus")
-      .split(/(Excalidraw\+)/)
-      .map((bit, idx) => {
-        if (bit === "Excalidraw+") {
-          return (
-            <a
-              style={{ pointerEvents: POINTER_EVENTS.inheritFromUI }}
-              href={`${
-                import.meta.env.VITE_APP_PLUS_APP
-              }?utm_source=excalidraw&utm_medium=app&utm_content=welcomeScreenSignedInUser`}
-              key={idx}
-            >
-              Excalidraw+
-            </a>
-          );
-        }
-        return bit;
-      });
-  } else {
-    headingContent = (
-      <>
-        {t("welcomeScreen.app.center_heading")}
-        <br />
-        {t("welcomeScreen.app.center_heading_line2")}
-        <br />
-        {t("welcomeScreen.app.center_heading_line3")}
-      </>
-    );
-  }
-
+  isGuest?: boolean;
+}> = React.memo(({ onCollabDialogOpen, isCollabEnabled, isGuest = false }) => {
   return (
     <WelcomeScreen>
       <WelcomeScreen.Hints.MenuHint>
-        {t("welcomeScreen.app.menuHint")}
+        Exportar, preferencias, idiomas, ...
       </WelcomeScreen.Hints.MenuHint>
       <WelcomeScreen.Hints.ToolbarHint />
       <WelcomeScreen.Hints.HelpHint />
+
       <WelcomeScreen.Center>
-        <WelcomeScreen.Center.Logo />
+        {/* Always EduDraw branding */}
+        <WelcomeScreen.Center.Logo>
+          <EduDrawLogo />
+        </WelcomeScreen.Center.Logo>
+
         <WelcomeScreen.Center.Heading>
-          {headingContent}
-        </WelcomeScreen.Center.Heading>
-        <WelcomeScreen.Center.Menu>
-          <WelcomeScreen.Center.MenuItemLoadScene />
-          <WelcomeScreen.Center.MenuItemHelp />
-          {props.isCollabEnabled && (
-            <WelcomeScreen.Center.MenuItemLiveCollaborationTrigger
-              onSelect={() => props.onCollabDialogOpen()}
-            />
+          {isGuest ? (
+            <>
+              Tus cambios no se guardan en la nube.
+              <br />
+              Creá una cuenta gratis para guardar tu trabajo.
+            </>
+          ) : (
+            <>
+              ¡Elige una herramienta y empieza a dibujar!
+              <br />
+              Tus dibujos se guardan automáticamente en la nube.
+            </>
           )}
-          {!isExcalidrawPlusSignedUser && (
+        </WelcomeScreen.Center.Heading>
+
+        <WelcomeScreen.Center.Menu>
+          <BaseMenuItems
+            isCollabEnabled={isCollabEnabled}
+            onCollabDialogOpen={onCollabDialogOpen}
+          />
+
+          {/* Guest CTA — replaced by nothing for registered users */}
+          {isGuest && (
             <WelcomeScreen.Center.MenuItemLink
-              href={`${
-                import.meta.env.VITE_APP_PLUS_LP
-              }/plus?utm_source=excalidraw&utm_medium=app&utm_content=welcomeScreenGuest`}
+              href="/?signup=true"
               shortcut={null}
               icon={loginIcon}
+              onClick={(e) => {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent("edudraw:signup"));
+              }}
             >
-              Sign up
+              Crear cuenta gratis →
             </WelcomeScreen.Center.MenuItemLink>
           )}
         </WelcomeScreen.Center.Menu>

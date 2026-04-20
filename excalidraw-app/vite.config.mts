@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
     //more located in parallel with the vite.config.ts file but in parent dir
     envDir: "../",
     resolve: {
+      dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
       alias: [
         {
           find: /^@excalidraw\/common$/,
@@ -148,6 +149,8 @@ export default defineConfig(({ mode }) => {
         },
 
         workbox: {
+          // Never intercept landing.html — serve it directly from network
+          navigateFallbackDenylist: [/\/landing\.html$/],
           // don't precache fonts, locales and separate chunks
           globIgnores: [
             "fonts.css",

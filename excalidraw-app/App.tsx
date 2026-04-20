@@ -7,6 +7,7 @@ import {
   useEditorInterface,
   ExcalidrawAPIProvider,
   useExcalidrawAPI,
+  exportToBlob,
 } from "@excalidraw/excalidraw";
 import { trackEvent } from "@excalidraw/excalidraw/analytics";
 import { getDefaultAppState } from "@excalidraw/excalidraw/appState";
@@ -44,7 +45,6 @@ import {
   DiscordIcon,
   ExcalLogo,
   usersIcon,
-  exportToPlus,
   share,
   youtubeIcon,
 } from "@excalidraw/excalidraw/components/icons";
@@ -80,6 +80,31 @@ import type {
 import type { ResolutionType } from "@excalidraw/common/utility-types";
 import type { ResolvablePromise } from "@excalidraw/common/utils";
 
+import {
+  fetchDrawing,
+  fetchDrawings,
+  createDrawing,
+  saveDrawing,
+  saveThumbnail,
+  signOut,
+  generateShareLink,
+  fetchSharedDrawing,
+  fetchProfile,
+  supabase,
+} from "./data/supabase";
+import type { Profile } from "./data/supabase";
+import { trackGuestSessionStart, trackGuestActivity } from "./data/guestTracking";
+import { Dashboard } from "./components/Dashboard";
+import { AdminPanel } from "./components/AdminPanel";
+import { OnboardingForm } from "./components/OnboardingForm";
+import { LoginScreen } from "./components/LoginScreen";
+import { LandingPage } from "./components/LandingPage";
+import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { useEduLibrary } from "./data/useEduLibrary";
+import { LibrarySidebar } from "./components/LibrarySidebar";
+
+import type { LibraryItems } from "@excalidraw/excalidraw/types";
+
 import CustomStats from "./CustomStats";
 import {
   Provider,
@@ -90,7 +115,6 @@ import {
 } from "./app-jotai";
 import {
   FIREBASE_STORAGE_PREFIXES,
-  isExcalidrawPlusSignedUser,
   STORAGE_KEYS,
   SYNC_BROWSER_TABS_TIMEOUT,
 } from "./app_constants";
@@ -102,10 +126,6 @@ import Collab, {
 import { AppFooter } from "./components/AppFooter";
 import { AppMainMenu } from "./components/AppMainMenu";
 import { AppWelcomeScreen } from "./components/AppWelcomeScreen";
-import {
-  ExportToExcalidrawPlus,
-  exportToExcalidrawPlus,
-} from "./components/ExportToExcalidrawPlus";
 import { TopErrorBoundary } from "./components/TopErrorBoundary";
 
 import {
@@ -141,11 +161,8 @@ import DebugCanvas, {
   loadSavedDebugState,
 } from "./components/DebugCanvas";
 import { AIComponents } from "./components/AI";
-import { ExcalidrawPlusIframeExport } from "./ExcalidrawPlusIframeExport";
-
 import "./index.scss";
 
-import { ExcalidrawPlusPromoBanner } from "./components/ExcalidrawPlusPromoBanner";
 import { AppSidebar } from "./components/AppSidebar";
 
 import type { CollabAPI } from "./collab/Collab";
@@ -371,8 +388,105 @@ const initializeScene = async (opts: {
   return { scene: null, isExternalScene: false };
 };
 
-const ExcalidrawWrapper = () => {
+const ExcalidrawWrapper = ({
+  drawingId,
+  onBackToDashboard,
+  isGuest = false,
+}: {
+  drawingId: string;
+  onBackToDashboard: () => void;
+  isGuest?: boolean;
+}) => {
   const excalidrawAPI = useExcalidrawAPI();
+  const guestActivityTracker = useRef(
+    debounce((count: number) => trackGuestActivity(count).catch(() => {}), 10000),
+  ).current;
+  // Stores the latest unsaved state so we can flush on unmount
+  const pendingSaveRef = useRef<{
+    id: string;
+    elements: readonly OrderedExcalidrawElement[];
+    appState: AppState;
+  } | null>(null);
+
+  const supabaseSave = useRef(
+    debounce(
+      (
+        id: string,
+        elements: readonly OrderedExcalidrawElement[],
+        appState: AppState,
+      ) => {
+        // collaborators es un Map — no serializable, se excluye del guardado
+        const { collaborators: _c, ...serializableAppState } = appState;
+        saveDrawing(id, {
+          elements: elements as unknown[],
+          appState: serializableAppState as unknown as Record<string, unknown>,
+        })
+          .then(() => {
+            pendingSaveRef.current = null;
+            console.debug("[EduDraw] saved drawing", id);
+          })
+          .catch((err) => {
+            console.error("[EduDraw] save error:", err);
+          });
+      },
+      3000,
+    ),
+  ).current;
+
+  // Flush pending save immediately when the component unmounts (e.g. user goes back to dashboard)
+  useEffect(() => {
+    return () => {
+      supabaseSave.flush?.();
+      if (pendingSaveRef.current) {
+        const { id, elements, appState } = pendingSaveRef.current;
+        const { collaborators: _c, ...serializableAppState } = appState;
+        saveDrawing(id, {
+          elements: elements as unknown[],
+          appState: serializableAppState as unknown as Record<string, unknown>,
+        }).catch(console.error);
+        pendingSaveRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const thumbnailSave = useRef(
+    debounce(
+      (
+        id: string,
+        elements: readonly OrderedExcalidrawElement[],
+        appState: AppState,
+        files: BinaryFiles,
+      ) => {
+        const nonDeleted = elements.filter((el) => !el.isDeleted);
+        if (nonDeleted.length === 0) return;
+        exportToBlob({
+          elements: nonDeleted,
+          appState: {
+            ...appState,
+            exportBackground: true,
+            viewBackgroundColor: appState.viewBackgroundColor || "#ffffff",
+          },
+          files,
+          mimeType: "image/webp",
+          quality: 0.6,
+          getDimensions: (w, h) => {
+            const MAX = 480;
+            const scale = Math.min(1, MAX / Math.max(w, h, 1));
+            return { width: Math.round(w * scale), height: Math.round(h * scale), scale };
+          },
+        })
+          .then((blob) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              saveThumbnail(id, reader.result as string).catch(console.error);
+            reader.readAsDataURL(blob);
+          })
+          .catch(console.error);
+      },
+      30000,
+    ),
+  ).current;
 
   const [errorMessage, setErrorMessage] = useState("");
   const isCollabDisabled = isRunningInIframe();
@@ -417,6 +531,33 @@ const ExcalidrawWrapper = () => {
     // TODO maybe remove this in several months (shipped: 24-03-11)
     migrationAdapter: LibraryLocalStorageMigrationAdapter,
   });
+
+  useEduLibrary(excalidrawAPI);
+
+  const [libraryItems, setLibraryItems] = useState<LibraryItems>([]);
+  const [showLibrarySidebar, setShowLibrarySidebar] = useState(true);
+  const [isPresentationMode, setIsPresentationMode] = useState(false);
+
+  const enterPresentation = useCallback(() => {
+    setIsPresentationMode(true);
+    setShowLibrarySidebar(false);
+    document.documentElement.requestFullscreen?.().catch(() => {});
+  }, []);
+
+  const exitPresentation = useCallback(() => {
+    setIsPresentationMode(false);
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      if (!document.fullscreenElement) setIsPresentationMode(false);
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
 
   const [, forceRefresh] = useState(false);
 
@@ -525,10 +666,37 @@ const ExcalidrawWrapper = () => {
       return;
     }
 
-    initializeScene({ collabAPI, excalidrawAPI }).then(async (data) => {
-      loadImages(data, /* isInitialLoad */ true);
+    const loadScene = async () => {
+      if (drawingId === "__guest__") {
+        // Load from browser localStorage so returning guests keep their work
+        const data = await initializeScene({ collabAPI, excalidrawAPI });
+        loadImages(data, true);
+        initialStatePromiseRef.current.promise.resolve(data.scene);
+        return;
+      }
+      const supabaseDrawing = await fetchDrawing(drawingId).catch(() => null);
+      if (supabaseDrawing) {
+        // Dibujo encontrado en Supabase — usar su contenido (puede estar vacío)
+        const elements = (supabaseDrawing.content?.elements ?? []) as Parameters<typeof restoreElements>[0];
+        const appState = (supabaseDrawing.content?.appState ?? {}) as Parameters<typeof restoreAppState>[0];
+        initialStatePromiseRef.current.promise.resolve({
+          elements: restoreElements(elements, null, {
+            repairBindings: true,
+            deleteInvisibleElements: true,
+          }),
+          appState: restoreAppState(
+            { ...appState, collaborators: new Map() },
+            null,
+          ),
+        });
+        return;
+      }
+      const data = await initializeScene({ collabAPI, excalidrawAPI });
+      loadImages(data, true);
       initialStatePromiseRef.current.promise.resolve(data.scene);
-    });
+    };
+
+    loadScene();
 
     const onHashChange = async (event: HashChangeEvent) => {
       event.preventDefault();
@@ -648,6 +816,7 @@ const ExcalidrawWrapper = () => {
         false,
       );
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCollabDisabled, collabAPI, excalidrawAPI, setLangCode, loadImages]);
 
   useEffect(() => {
@@ -682,6 +851,15 @@ const ExcalidrawWrapper = () => {
   ) => {
     if (collabAPI?.isCollaborating()) {
       collabAPI.syncElements(elements);
+    }
+
+    if (drawingId !== "__guest__") {
+      pendingSaveRef.current = { id: drawingId, elements, appState };
+      supabaseSave(drawingId, elements, appState);
+      thumbnailSave(drawingId, elements, appState, files);
+    } else {
+      const activeCount = elements.filter((el) => !el.isDeleted).length;
+      if (activeCount > 0) guestActivityTracker(activeCount);
     }
 
     // this check is redundant, but since this is a hot path, it's best
@@ -731,43 +909,12 @@ const ExcalidrawWrapper = () => {
     null,
   );
 
-  const onExportToBackend = async (
-    exportedElements: readonly NonDeletedExcalidrawElement[],
-    appState: Partial<AppState>,
-    files: BinaryFiles,
-  ) => {
-    if (exportedElements.length === 0) {
-      throw new Error(t("alerts.cannotExportEmptyCanvas"));
-    }
+  const onExportToBackend = async () => {
     try {
-      const { url, errorMessage } = await exportToBackend(
-        exportedElements,
-        {
-          ...appState,
-          viewBackgroundColor: appState.exportBackground
-            ? appState.viewBackgroundColor
-            : getDefaultAppState().viewBackgroundColor,
-        },
-        files,
-      );
-
-      if (errorMessage) {
-        throw new Error(errorMessage);
-      }
-
-      if (url) {
-        setLatestShareableLink(url);
-      }
+      const link = await generateShareLink(drawingId);
+      setLatestShareableLink(link);
     } catch (error: any) {
-      if (error.name !== "AbortError") {
-        const { width, height } = appState;
-        console.error(error, {
-          width,
-          height,
-          devicePixelRatio: window.devicePixelRatio,
-        });
-        throw new Error(error.message);
-      }
+      throw new Error(error.message);
     }
   };
 
@@ -862,53 +1009,17 @@ const ExcalidrawWrapper = () => {
     );
   }
 
-  const ExcalidrawPlusCommand = {
-    label: "Excalidraw+",
-    category: DEFAULT_CATEGORIES.links,
-    predicate: true,
-    icon: <div style={{ width: 14 }}>{ExcalLogo}</div>,
-    keywords: ["plus", "cloud", "server"],
-    perform: () => {
-      window.open(
-        `${
-          import.meta.env.VITE_APP_PLUS_LP
-        }/plus?utm_source=excalidraw&utm_medium=app&utm_content=command_palette`,
-        "_blank",
-      );
-    },
-  };
-  const ExcalidrawPlusAppCommand = {
-    label: "Sign up",
-    category: DEFAULT_CATEGORIES.links,
-    predicate: true,
-    icon: <div style={{ width: 14 }}>{ExcalLogo}</div>,
-    keywords: [
-      "excalidraw",
-      "plus",
-      "cloud",
-      "server",
-      "signin",
-      "login",
-      "signup",
-    ],
-    perform: () => {
-      window.open(
-        `${
-          import.meta.env.VITE_APP_PLUS_APP
-        }?utm_source=excalidraw&utm_medium=app&utm_content=command_palette`,
-        "_blank",
-      );
-    },
-  };
 
   return (
+    <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
     <div
-      style={{ height: "100%" }}
+      style={{ flex: 1, minWidth: 0, height: "100%" }}
       className={clsx("excalidraw-app", {
         "is-collaborating": isCollaborating,
       })}
     >
       <Excalidraw
+        viewModeEnabled={isPresentationMode}
         onChange={onChange}
         onExport={onExport}
         initialData={initialStatePromiseRef.current.promise}
@@ -918,31 +1029,9 @@ const ExcalidrawWrapper = () => {
           canvasActions: {
             toggleTheme: true,
             export: {
-              onExportToBackend,
-              renderCustomUI: excalidrawAPI
-                ? (elements, appState, files) => {
-                    return (
-                      <ExportToExcalidrawPlus
-                        elements={elements}
-                        appState={appState}
-                        files={files}
-                        name={excalidrawAPI.getName()}
-                        onError={(error) => {
-                          excalidrawAPI?.updateScene({
-                            appState: {
-                              errorMessage: error.message,
-                            },
-                          });
-                        }}
-                        onSuccess={() => {
-                          excalidrawAPI.updateScene({
-                            appState: { openDialog: null },
-                          });
-                        }}
-                      />
-                    );
-                  }
-                : undefined,
+              onExportToBackend: isGuest
+                ? undefined
+                : onExportToBackend,
             },
           },
         }}
@@ -959,11 +1048,57 @@ const ExcalidrawWrapper = () => {
 
           return (
             <div className="excalidraw-ui-top-right">
-              {excalidrawAPI?.getEditorInterface().formFactor === "desktop" && (
-                <ExcalidrawPlusPromoBanner
-                  isSignedIn={isExcalidrawPlusSignedUser}
-                />
-              )}
+              <button
+                style={{
+                  padding: "6px 12px",
+                  background: "#6965db",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  marginRight: 6,
+                }}
+                onClick={onBackToDashboard}
+                title={isGuest ? "Volver al inicio" : "Volver al dashboard"}
+              >
+                {isGuest ? "← Inicio" : "← Mis dibujos"}
+              </button>
+              <button
+                style={{
+                  padding: "6px 12px",
+                  background: showLibrarySidebar ? "#6965db" : "#fff",
+                  color: showLibrarySidebar ? "#fff" : "#6965db",
+                  border: "1.5px solid #6965db",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  marginRight: 6,
+                }}
+                onClick={() => setShowLibrarySidebar((v) => !v)}
+                title={showLibrarySidebar ? "Ocultar biblioteca" : "Mostrar biblioteca"}
+              >
+                📚 Biblioteca
+              </button>
+              <button
+                style={{
+                  padding: "6px 12px",
+                  background: "#fff",
+                  color: "#333",
+                  border: "1.5px solid #ccc",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  marginRight: 8,
+                }}
+                onClick={enterPresentation}
+                title="Modo presentación"
+              >
+                ▶ Presentar
+              </button>
 
               {collabError.message && <CollabError collabError={collabError} />}
               <LiveCollaborationTrigger
@@ -976,6 +1111,7 @@ const ExcalidrawWrapper = () => {
             </div>
           );
         }}
+        onLibraryChange={setLibraryItems}
         onLinkOpen={(element, event) => {
           if (element.link && isElementLink(element.link)) {
             event.preventDefault();
@@ -990,30 +1126,17 @@ const ExcalidrawWrapper = () => {
           theme={appTheme}
           setTheme={(theme) => setAppTheme(theme)}
           refresh={() => forceRefresh((prev) => !prev)}
+          onBackToDashboard={onBackToDashboard}
+          isGuest={isGuest}
         />
         <AppWelcomeScreen
           onCollabDialogOpen={onCollabDialogOpen}
           isCollabEnabled={!isCollabDisabled}
+          isGuest={isGuest}
         />
         <OverwriteConfirmDialog>
-          <OverwriteConfirmDialog.Actions.ExportToImage />
           <OverwriteConfirmDialog.Actions.SaveToDisk />
-          {excalidrawAPI && (
-            <OverwriteConfirmDialog.Action
-              title={t("overwriteConfirm.action.excalidrawPlus.title")}
-              actionLabel={t("overwriteConfirm.action.excalidrawPlus.button")}
-              onClick={() => {
-                exportToExcalidrawPlus(
-                  excalidrawAPI.getSceneElements(),
-                  excalidrawAPI.getAppState(),
-                  excalidrawAPI.getFiles(),
-                  excalidrawAPI.getName(),
-                );
-              }}
-            >
-              {t("overwriteConfirm.action.excalidrawPlus.description")}
-            </OverwriteConfirmDialog.Action>
-          )}
+          <OverwriteConfirmDialog.Actions.ExportToImage />
         </OverwriteConfirmDialog>
         <AppFooter onChange={() => excalidrawAPI?.refresh()} />
         {excalidrawAPI && <AIComponents excalidrawAPI={excalidrawAPI} />}
@@ -1043,16 +1166,15 @@ const ExcalidrawWrapper = () => {
         <ShareDialog
           collabAPI={collabAPI}
           onExportToBackend={async () => {
-            if (excalidrawAPI) {
-              try {
-                await onExportToBackend(
-                  excalidrawAPI.getSceneElements(),
-                  excalidrawAPI.getAppState(),
-                  excalidrawAPI.getFiles(),
-                );
-              } catch (error: any) {
-                setErrorMessage(error.message);
-              }
+            if (isGuest) {
+              setErrorMessage("Creá una cuenta para compartir tu dibujo.");
+              return;
+            }
+            try {
+              const link = await generateShareLink(drawingId);
+              setLatestShareableLink(link);
+            } catch (error: any) {
+              setErrorMessage(error.message);
             }
           }}
         />
@@ -1203,32 +1325,6 @@ const ExcalidrawWrapper = () => {
                 );
               },
             },
-            ...(isExcalidrawPlusSignedUser
-              ? [
-                  {
-                    ...ExcalidrawPlusAppCommand,
-                    label: "Sign in / Go to Excalidraw+",
-                  },
-                ]
-              : [ExcalidrawPlusCommand, ExcalidrawPlusAppCommand]),
-
-            {
-              label: t("overwriteConfirm.action.excalidrawPlus.button"),
-              category: DEFAULT_CATEGORIES.export,
-              icon: exportToPlus,
-              predicate: true,
-              keywords: ["plus", "export", "save", "backup"],
-              perform: () => {
-                if (excalidrawAPI) {
-                  exportToExcalidrawPlus(
-                    excalidrawAPI.getSceneElements(),
-                    excalidrawAPI.getAppState(),
-                    excalidrawAPI.getFiles(),
-                    excalidrawAPI.getName(),
-                  );
-                }
-              },
-            },
             {
               ...CommandPalette.defaultItems.toggleTheme,
               perform: () => {
@@ -1263,23 +1359,391 @@ const ExcalidrawWrapper = () => {
         )}
       </Excalidraw>
     </div>
+    {showLibrarySidebar && excalidrawAPI && !isPresentationMode && (
+      <LibrarySidebar
+        libraryItems={libraryItems}
+        excalidrawAPI={excalidrawAPI}
+        onClose={() => setShowLibrarySidebar(false)}
+      />
+    )}
+    {isPresentationMode && (
+      <button
+        onClick={exitPresentation}
+        title="Salir de presentación (Esc)"
+        style={{
+          position: "fixed",
+          top: 12,
+          right: 12,
+          zIndex: 99999,
+          padding: "8px 16px",
+          background: "rgba(0,0,0,0.6)",
+          color: "#fff",
+          border: "none",
+          borderRadius: 8,
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: "pointer",
+        }}
+      >
+        ✕ Salir
+      </button>
+    )}
+    </div>
+  );
+};
+
+// ── URL helpers ───────────────────────────────────────────────────────────────
+
+const getUrlParams = () => new URLSearchParams(window.location.search);
+
+const navigate = (path: string) => {
+  if (window.location.search !== path && window.location.pathname + window.location.search !== path) {
+    window.history.pushState({}, "", path);
+  }
+};
+
+// ── ExcalidrawAppInner ────────────────────────────────────────────────────────
+
+const ExcalidrawAppInner = () => {
+  const { session, loading: authLoading } = useAuth();
+  const [currentDrawingId, setCurrentDrawingId] = useState<string | null>(null);
+  const [view, setView] = useState<"canvas" | "dashboard" | "admin">("canvas");
+  const [initializing, setInitializing] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [guestMode, setGuestMode] = useState(false);
+  const [sharedDrawingId, setSharedDrawingId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const initDone = useRef(false);
+
+  // Handle ?share=TOKEN — public read-only view, no auth needed
+  useEffect(() => {
+    const token = getUrlParams().get("share");
+    if (!token) return;
+    fetchSharedDrawing(token)
+      .then((d) => setSharedDrawingId(d.id))
+      .catch(() => {});
+  }, []);
+
+  // Listen to signup event dispatched from the guest WelcomeScreen
+  useEffect(() => {
+    const handler = () => setShowLogin(true);
+    window.addEventListener("edudraw:signup", handler);
+    return () => window.removeEventListener("edudraw:signup", handler);
+  }, []);
+
+  // Load profile + Realtime subscription for instant plan updates
+  useEffect(() => {
+    if (!session) return;
+
+    fetchProfile().then((p) => {
+      setProfile(p);
+      if (p && !p.onboarding_done) setShowOnboarding(true);
+    });
+
+    const channel = supabase
+      .channel(`profile:${session.user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${session.user.id}`,
+        },
+        (payload) => {
+          setProfile(payload.new as Profile);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session]);
+
+  // Browser back/forward support
+  useEffect(() => {
+    const handler = () => {
+      const params = getUrlParams();
+      const drawingId = params.get("d");
+      const isAdmin = params.has("admin");
+      if (isAdmin) { setView("admin"); return; }
+      if (!drawingId) { setView("dashboard"); return; }
+      setCurrentDrawingId(drawingId);
+      setView("canvas");
+    };
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
+
+  // Auto-load or create drawing when session is ready
+  useEffect(() => {
+    if (!session || currentDrawingId || initDone.current) {
+      return;
+    }
+    initDone.current = true;
+
+    // Restore position from URL on refresh
+    const params = getUrlParams();
+    const urlDrawingId = params.get("d");
+    const urlAdmin = params.has("admin");
+
+    if (urlAdmin) {
+      setView("admin");
+      setInitializing(false);
+      return;
+    }
+    if (urlDrawingId) {
+      setCurrentDrawingId(urlDrawingId);
+      setView("canvas");
+      setInitializing(false);
+      return;
+    }
+    // Check if URL says dashboard explicitly
+    if (params.has("dashboard")) {
+      setView("dashboard");
+      setInitializing(false);
+      return;
+    }
+
+    setInitializing(true);
+    fetchDrawings()
+      .then(async (drawings) => {
+        const id = drawings.length > 0
+          ? drawings[0].id
+          : (await createDrawing("Mi primer dibujo")).id;
+        navigate(`/?d=${id}`);
+        setCurrentDrawingId(id);
+      })
+      .catch(async (err) => {
+        console.error("fetchDrawings error:", err);
+        const msg = err?.message || err?.code || JSON.stringify(err);
+        setInitError(String(msg));
+        initDone.current = false;
+        const isAuthError =
+          err?.status === 401 ||
+          err?.code === "PGRST301" ||
+          String(err?.message).toLowerCase().includes("jwt");
+        if (isAuthError) {
+          await signOut({ scope: "local" });
+        }
+      })
+      .finally(() => setInitializing(false));
+  }, [session, currentDrawingId]);
+
+  // Public shared drawing — anyone can view, no auth required
+  if (sharedDrawingId) {
+    return (
+      <Provider store={appJotaiStore}>
+        <ExcalidrawAPIProvider>
+          <ExcalidrawWrapper
+            drawingId={sharedDrawingId}
+            onBackToDashboard={() => {
+              setSharedDrawingId(null);
+              window.history.replaceState({}, "", "/");
+            }}
+          />
+        </ExcalidrawAPIProvider>
+      </Provider>
+    );
+  }
+
+  if (authLoading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#6965db", fontSize: 16 }}>
+        Cargando...
+      </div>
+    );
+  }
+
+  if (!session) {
+    if (showLogin) {
+      return <LoginScreen />;
+    }
+    if (guestMode) {
+      return (
+        <div style={{ position: "relative", width: "100%", height: "100vh" }}>
+          {/* Guest banner */}
+          <div style={{
+            position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
+            background: "linear-gradient(94deg, #4a0fcc, #6128ff)",
+            color: "#fff", display: "flex", alignItems: "center",
+            justifyContent: "space-between", padding: "0 20px",
+            height: 42, fontSize: 13, fontFamily: "Assistant, sans-serif",
+            boxShadow: "0 2px 12px rgba(97,40,255,.35)",
+          }}>
+            <span>
+              ✏️ <strong>Modo invitado</strong> · Tus cambios no se guardan en la nube
+            </span>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button
+                onClick={() => setShowLogin(true)}
+                style={{
+                  background: "rgba(255,255,255,.15)", color: "#fff",
+                  border: "1px solid rgba(255,255,255,.35)",
+                  borderRadius: 6, padding: "4px 14px", fontSize: 13,
+                  cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
+                }}
+              >
+                Iniciar sesión
+              </button>
+              <button
+                onClick={() => setShowLogin(true)}
+                style={{
+                  background: "#fff", color: "#6128ff",
+                  border: "none", borderRadius: 6,
+                  padding: "4px 14px", fontSize: 13,
+                  cursor: "pointer", fontFamily: "inherit", fontWeight: 700,
+                }}
+              >
+                Crear cuenta gratis →
+              </button>
+              <button
+                onClick={() => setGuestMode(false)}
+                style={{
+                  background: "transparent", color: "rgba(255,255,255,.6)",
+                  border: "none", cursor: "pointer", fontSize: 18,
+                  lineHeight: 1, padding: "0 4px", fontFamily: "inherit",
+                }}
+                title="Volver al inicio"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          {/* Canvas below banner — exact remaining height */}
+          <div style={{ marginTop: 42, height: "calc(100vh - 42px)" }}>
+            <Provider store={appJotaiStore}>
+              <ExcalidrawAPIProvider>
+                <ExcalidrawWrapper
+                  drawingId="__guest__"
+                  onBackToDashboard={() => setGuestMode(false)}
+                  isGuest
+                />
+              </ExcalidrawAPIProvider>
+            </Provider>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <LandingPage
+        onLogin={() => setShowLogin(true)}
+        onGuest={() => {
+          setGuestMode(true);
+          trackGuestSessionStart().catch(() => {});
+        }}
+      />
+    );
+  }
+
+  if (initializing) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", color: "#6965db", fontSize: 16, gap: 12 }}>
+        Cargando dibujos...
+        {initError && (
+          <div style={{ color: "red", fontSize: 13, maxWidth: 460, textAlign: "center", background: "#fff0f0", padding: "12px 20px", borderRadius: 10, border: "1px solid #ffcccc" }}>
+            {initError}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (showOnboarding) {
+    return (
+      <OnboardingForm
+        onDone={() => {
+          fetchProfile().then(setProfile);
+          setShowOnboarding(false);
+        }}
+      />
+    );
+  }
+
+  if (view === "admin") {
+    return (
+      <AdminPanel
+        onBack={() => {
+          navigate("/?dashboard");
+          setView("dashboard");
+        }}
+      />
+    );
+  }
+
+  if (view === "dashboard") {
+    return (
+      <Dashboard
+        onOpenDrawing={(id) => {
+          navigate(`/?d=${id}`);
+          setCurrentDrawingId(id);
+          setView("canvas");
+        }}
+        profile={profile}
+        onProfileChange={setProfile}
+        onOpenAdmin={
+          session?.user?.email === "pompa.07@gmail.com"
+            ? () => { navigate("/?admin"); setView("admin"); }
+            : undefined
+        }
+      />
+    );
+  }
+
+  if (!currentDrawingId) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          gap: 16,
+          color: "#6965db",
+          fontSize: 16,
+        }}
+      >
+        {initError ? (
+          <>
+            <div style={{ color: "red", fontSize: 14, maxWidth: 460, textAlign: "center", background: "#fff0f0", padding: "12px 20px", borderRadius: 10, border: "1px solid #ffcccc" }}>
+              Error al cargar dibujos: {initError}
+            </div>
+            <button
+              onClick={() => { initDone.current = false; setInitError(null); setInitializing(true); fetchDrawings().then(async (drawings) => { const id = drawings.length > 0 ? drawings[0].id : (await createDrawing("Mi primer dibujo")).id; navigate(`/?d=${id}`); setCurrentDrawingId(id); }).catch((e) => setInitError(String(e?.message || e))).finally(() => setInitializing(false)); }}
+              style={{ padding: "10px 24px", background: "#6965db", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 14 }}
+            >
+              Reintentar
+            </button>
+          </>
+        ) : (
+          <span>Cargando...</span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Provider store={appJotaiStore}>
+      <ExcalidrawAPIProvider>
+        <ExcalidrawWrapper
+          drawingId={currentDrawingId}
+          onBackToDashboard={() => { navigate("/?dashboard"); setView("dashboard"); }}
+        />
+      </ExcalidrawAPIProvider>
+    </Provider>
   );
 };
 
 const ExcalidrawApp = () => {
-  const isCloudExportWindow =
-    window.location.pathname === "/excalidraw-plus-export";
-  if (isCloudExportWindow) {
-    return <ExcalidrawPlusIframeExport />;
-  }
-
   return (
     <TopErrorBoundary>
-      <Provider store={appJotaiStore}>
-        <ExcalidrawAPIProvider>
-          <ExcalidrawWrapper />
-        </ExcalidrawAPIProvider>
-      </Provider>
+      <AuthProvider>
+        <ExcalidrawAppInner />
+      </AuthProvider>
     </TopErrorBoundary>
   );
 };

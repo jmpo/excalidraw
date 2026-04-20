@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduDraw — La pizarra digital para educadores</title>
+  <link rel="icon" href="/favicon.svg" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand: #6965db;
+      --brand-dark: #4e4bbb;
+      --brand-light: #e8e7ff;
+      --bg: #fdfcff;
+      --text: #1a1a2e;
+      --muted: #6b6b8a;
+      --border: #e2e1f5;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.6;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Header ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      height: 64px;
+      background: rgba(253,252,255,.95);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--brand);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    nav { display: flex; align-items: center; gap: 24px; }
+    nav a { font-size: 14px; color: var(--muted); font-weight: 500; }
+    nav a:hover { color: var(--brand); }
+
+    .header-btns { display: flex; gap: 10px; }
+
+    .btn {
+      display: inline-block;
+      padding: 9px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: background .15s;
+    }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover { background: var(--brand-dark); }
+    .btn-outline { background: transparent; color: var(--brand); border: 1.5px solid var(--brand); }
+    .btn-outline:hover { background: var(--brand-light); }
+    .btn-lg { padding: 13px 32px; font-size: 16px; border-radius: 10px; }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      background: radial-gradient(ellipse 70% 40% at 50% 0%, rgba(105,101,219,.12) 0%, transparent 70%);
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: var(--brand-light);
+      color: var(--brand);
+      border-radius: 99px;
+      padding: 5px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-size: clamp(32px, 5vw, 60px);
+      font-weight: 800;
+      line-height: 1.15;
+      color: var(--text);
+      max-width: 780px;
+      margin: 0 auto 20px;
+    }
+
+    .hero h1 span { color: var(--brand); }
+
+    .hero p {
+      font-size: clamp(15px, 2vw, 18px);
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 36px;
+    }
+
+    .hero-btns {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .hero-note { font-size: 12px; color: var(--muted); }
+
+    /* ── Features ── */
+    .section { padding: 72px 24px; max-width: 1100px; margin: 0 auto; }
+    .section-title { text-align: center; font-size: clamp(24px, 3vw, 36px); font-weight: 800; margin-bottom: 10px; }
+    .section-sub { text-align: center; color: var(--muted); font-size: 16px; margin-bottom: 48px; }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 24px;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .feature-card:hover { box-shadow: 0 8px 32px rgba(105,101,219,.15); transform: translateY(-2px); }
+
+    .feature-icon { font-size: 32px; margin-bottom: 16px; }
+    .feature-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    /* ── How it works ── */
+    .steps { background: #f5f4ff; padding: 72px 24px; }
+    .steps-inner { max-width: 900px; margin: 0 auto; }
+    .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; margin-top: 48px; }
+
+    .step { text-align: center; }
+    .step-num {
+      width: 48px; height: 48px;
+      background: var(--brand);
+      color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800;
+      margin: 0 auto 16px;
+    }
+    .step h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .step p { font-size: 14px; color: var(--muted); }
+
+    /* ── Pricing ── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .pricing-card {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 28px;
+      background: #fff;
+      text-align: center;
+    }
+    .pricing-card.featured { border-color: var(--brand); border-width: 2px; position: relative; }
+    .pricing-badge {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: var(--brand); color: #fff;
+      padding: 3px 16px; border-radius: 99px; font-size: 12px; font-weight: 700;
+    }
+    .pricing-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .pricing-price { font-size: 42px; font-weight: 800; color: var(--brand); margin: 12px 0 4px; }
+    .pricing-price span { font-size: 16px; font-weight: 400; color: var(--muted); }
+    .pricing-desc { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
+    .pricing-features { list-style: none; text-align: left; margin-bottom: 28px; }
+    .pricing-features li { font-size: 14px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .pricing-features li::before { content: "✓ "; color: var(--brand); font-weight: 700; }
+    .pricing-btn {
+      display: block; width: 100%; padding: 12px;
+      border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; border: none; transition: background .15s;
+    }
+    .pricing-btn.primary { background: var(--brand); color: #fff; }
+    .pricing-btn.primary:hover { background: var(--brand-dark); }
+    .pricing-btn.outline { background: transparent; color: var(--brand); border: 1.5px solid var(--brand); }
+    .pricing-btn.outline:hover { background: var(--brand-light); }
+
+    /* ── CTA Banner ── */
+    .cta-banner {
+      background: var(--brand);
+      color: #fff;
+      text-align: center;
+      padding: 64px 24px;
+    }
+    .cta-banner h2 { font-size: clamp(24px, 3vw, 36px); font-weight: 800; margin-bottom: 12px; }
+    .cta-banner p { font-size: 16px; opacity: .85; margin-bottom: 32px; }
+    .btn-white { background: #fff; color: var(--brand); padding: 14px 36px; font-size: 16px; border-radius: 10px; font-weight: 700; }
+    .btn-white:hover { background: var(--brand-light); }
+
+    /* ── Footer ── */
+    footer { background: #1a1a2e; color: #fff; padding: 48px 40px 24px; }
+    .footer-inner { display: flex; flex-wrap: wrap; gap: 32px; justify-content: space-between; margin-bottom: 32px; }
+    .footer-brand { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+    .footer-brand-desc { font-size: 13px; color: rgba(255,255,255,.5); max-width: 220px; }
+    .footer-col h4 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: rgba(255,255,255,.5); margin-bottom: 12px; }
+    .footer-col a { display: block; font-size: 14px; color: rgba(255,255,255,.7); margin-bottom: 8px; }
+    .footer-col a:hover { color: #fff; }
+    .footer-bottom { border-top: 1px solid rgba(255,255,255,.1); padding-top: 20px; font-size: 13px; color: rgba(255,255,255,.4); text-align: center; }
+
+    @media (max-width: 640px) {
+      header { padding: 0 20px; }
+      nav { display: none; }
+      .hero { padding: 60px 20px 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#">
+    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#6965db"/>
+      <path d="M6 20L11 13L15 17L22 9" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    EduDraw
+  </a>
+  <nav>
+    <a href="#features">Funciones</a>
+    <a href="#como-funciona">¿Cómo funciona?</a>
+    <a href="#precios">Precios</a>
+  </nav>
+  <div class="header-btns">
+    <a class="btn btn-outline" href="/?login=true">Iniciar sesión</a>
+    <a class="btn btn-primary" href="/?login=true">Empezar gratis</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">✏️ Diseñado para educadores</div>
+  <h1>La pizarra digital<br><span>para enseñar sin límites</span></h1>
+  <p>Dibujá, explicá y presentá con una herramienta visual que se adapta a tu clase. Biblioteca educativa, plantillas listas y guardado en la nube.</p>
+  <div class="hero-btns">
+    <a class="btn btn-primary btn-lg" href="/?login=true">🚀 Empezar gratis</a>
+    <a class="btn btn-outline btn-lg" href="/?login=true">Ver demo</a>
+  </div>
+  <p class="hero-note">Sin tarjeta de crédito · Gratis para siempre en el plan básico</p>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features">
+  <h2 class="section-title">Todo lo que necesitás para enseñar</h2>
+  <p class="section-sub">Herramientas pensadas para el aula, no para la oficina.</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📚</div>
+      <h3>Biblioteca educativa</h3>
+      <p>Más de 50 elementos listos: figuras humanas, diagramas, matemáticas y más. Un click para insertar.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🗂️</div>
+      <h3>Plantillas de clase</h3>
+      <p>Mapas mentales, líneas de tiempo, canvas de negocio y diapositivas. Empezá en segundos.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📁</div>
+      <h3>Organización por carpetas</h3>
+      <p>Guardá tus dibujos organizados por materia, clase o proyecto. Todo siempre a mano.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">▶️</div>
+      <h3>Modo presentación</h3>
+      <p>Mostrá tu pizarra en pantalla completa sin distracciones. Ideal para clases y conferencias.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">☁️</div>
+      <h3>Guardado automático</h3>
+      <p>Todo se guarda en la nube en tiempo real. Accedé desde cualquier dispositivo.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">✏️</div>
+      <h3>Dibujo natural</h3>
+      <p>Trazos con aspecto hecho a mano. Perfecto para explicar conceptos de forma visual y clara.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<div class="steps" id="como-funciona">
+  <div class="steps-inner">
+    <h2 class="section-title">¿Cómo funciona?</h2>
+    <p class="section-sub">Tres pasos y ya estás dibujando</p>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Creá tu cuenta</h3>
+        <p>Registro gratuito en segundos. Solo necesitás tu email.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Abrí un dibujo</h3>
+        <p>Empezá desde cero o elegí una plantilla educativa lista para usar.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Enseñá y compartí</h3>
+        <p>Usá el modo presentación o exportá tu pizarra como imagen.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<section class="section" id="precios">
+  <h2 class="section-title">Precios simples</h2>
+  <p class="section-sub">Empezá gratis, escalá cuando lo necesites</p>
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <h3>Free</h3>
+      <div class="pricing-price">$0 <span>/ mes</span></div>
+      <p class="pricing-desc">Para docentes que quieren explorar</p>
+      <ul class="pricing-features">
+        <li>Dibujos ilimitados</li>
+        <li>Biblioteca básica (50+ elementos)</li>
+        <li>Guardado en la nube</li>
+        <li>Exportar como imagen</li>
+      </ul>
+      <button class="pricing-btn outline" onclick="window.location.href='/?login=true'">Empezar gratis</button>
+    </div>
+    <div class="pricing-card featured">
+      <div class="pricing-badge">Próximamente</div>
+      <h3>Pro</h3>
+      <div class="pricing-price">$9 <span>/ mes</span></div>
+      <p class="pricing-desc">Para docentes que quieren más</p>
+      <ul class="pricing-features">
+        <li>Todo lo de Free</li>
+        <li>Biblioteca completa</li>
+        <li>Colaboración en tiempo real</li>
+        <li>Modo presentación avanzado</li>
+        <li>Soporte prioritario</li>
+      </ul>
+      <button class="pricing-btn primary" onclick="window.location.href='/?login=true'">Unirme a la lista</button>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-banner">
+  <h2>¿Listo para transformar tus clases?</h2>
+  <p>Únete a los educadores que ya usan EduDraw para enseñar de forma más visual.</p>
+  <a class="btn-white" href="/?login=true">Empezar gratis ahora</a>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">EduDraw</div>
+      <p class="footer-brand-desc">La pizarra digital para educadores modernos.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Producto</h4>
+      <a href="#features">Funciones</a>
+      <a href="#como-funciona">¿Cómo funciona?</a>
+      <a href="#precios">Precios</a>
+    </div>
+    <div class="footer-col">
+      <h4>Cuenta</h4>
+      <a href="/?login=true">Iniciar sesión</a>
+      <a href="/?login=true">Crear cuenta</a>
+    </div>
+  </div>
+  <div class="footer-bottom">© 2026 EduDraw · Hecho con ✏️ para educadores</div>
+</footer>
+
+</body>
+</html>
