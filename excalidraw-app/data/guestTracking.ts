@@ -21,7 +21,7 @@ export async function trackGuestSessionStart(tool: "canvas" | "mindmap" = "canva
     },
     { onConflict: "session_id" },
   ).then(({ error }) => {
-    if (error) console.warn("Guest tracking error:", error.message);
+    if (error) console.error("Guest tracking error:", error.message, error);
   });
 }
 

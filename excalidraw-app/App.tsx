@@ -2045,32 +2045,46 @@ const ExcalidrawAppInner = () => {
           {/* Banner */}
           <div style={{
             position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
-            background: "linear-gradient(94deg, #4a0fcc, #6128ff)",
+            background: "linear-gradient(94deg, #2d0a8e, #4a0fcc, #6128ff)",
             color: "#fff", display: "flex", alignItems: "center",
-            justifyContent: "space-between", padding: "0 16px",
-            height: 44, fontSize: 13, fontFamily: "Assistant, sans-serif",
-            boxShadow: "0 2px 12px rgba(97,40,255,.35)",
+            justifyContent: "space-between", padding: "0 12px",
+            height: 48, fontSize: 13, fontFamily: "Assistant, sans-serif",
+            boxShadow: "0 3px 16px rgba(97,40,255,.5)",
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <button onClick={() => setGuestTool(null)} style={{
-                background: "rgba(255,255,255,.12)", border: "none", color: "rgba(255,255,255,.8)",
-                borderRadius: 6, padding: "3px 10px", fontSize: 12, cursor: "pointer", fontFamily: "inherit",
-              }}>← Cambiar herramienta</button>
-              <span style={{ opacity: .6, fontSize: 12 }}>
-                {guestTool === "canvas" ? "🎨 Pizarra libre" : "🧠 Mapa mental"} · Modo invitado
+            {/* Left: switch tool — made prominent */}
+            <button onClick={() => setGuestTool(null)} style={{
+              display: "flex", alignItems: "center", gap: 7,
+              background: "rgba(255,255,255,.18)", border: "1.5px solid rgba(255,255,255,.45)",
+              color: "#fff", borderRadius: 8, padding: "6px 14px",
+              fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+              transition: "background .15s",
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.28)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.18)"; }}
+            >
+              <span style={{ fontSize: 16 }}>⇄</span>
+              <span>Cambiar herramienta</span>
+              <span style={{
+                background: guestTool === "canvas" ? "rgba(124,75,255,.5)" : "rgba(16,185,129,.5)",
+                borderRadius: 4, padding: "1px 7px", fontSize: 11, fontWeight: 600, marginLeft: 2,
+              }}>
+                {guestTool === "canvas" ? "🎨 Pizarra" : "🧠 Mapa mental"}
               </span>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            </button>
+
+            {/* Right: auth CTAs */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,.45)", marginRight: 4 }}>Modo invitado</span>
               <button onClick={() => { setLoginMode("login"); setShowLogin(true); }}
-                style={{ background: "rgba(255,255,255,.15)", color: "#fff", border: "1px solid rgba(255,255,255,.35)", borderRadius: 6, padding: "4px 14px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
+                style={{ background: "rgba(255,255,255,.15)", color: "#fff", border: "1px solid rgba(255,255,255,.35)", borderRadius: 6, padding: "5px 14px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
                 Iniciar sesión
               </button>
               <button onClick={() => { setLoginMode("signup"); setShowLogin(true); }}
-                style={{ background: "#fff", color: "#6128ff", border: "none", borderRadius: 6, padding: "4px 14px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>
+                style={{ background: "#fff", color: "#6128ff", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>
                 Crear cuenta gratis →
               </button>
               <button onClick={exitGuest}
-                style={{ background: "transparent", color: "rgba(255,255,255,.5)", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 4px", fontFamily: "inherit" }}
+                style={{ background: "transparent", color: "rgba(255,255,255,.45)", border: "none", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 4px", fontFamily: "inherit" }}
                 title="Volver al inicio">×</button>
             </div>
           </div>
