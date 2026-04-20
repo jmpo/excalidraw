@@ -120,10 +120,9 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       Sitemap({
-        hostname: "https://excalidraw.com",
+        hostname: envVars.VITE_APP_SITE_URL || "https://edudraw.app",
         outDir: "build",
         changefreq: "monthly",
-        // its static in public folder
         generateRobotsTxt: false,
       }),
       woff2BrowserPlugin(),

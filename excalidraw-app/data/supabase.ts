@@ -248,27 +248,13 @@ export const completeOnboarding = async (
   if (error) throw error;
 };
 
-// ── Stripe checkout ───────────────────────────────────────────────────────────
+// ── Hotmart checkout ──────────────────────────────────────────────────────────
 
-export const createCheckoutSession = async (opts: {
-  priceId: string;
-  successUrl?: string;
-  cancelUrl?: string;
-}): Promise<string> => {
-  const { data: { session: authSession } } = await supabase.auth.getSession();
-  if (!authSession) throw new Error("Not authenticated");
-
-  const res = await supabase.functions.invoke("stripe-checkout", {
-    body: {
-      priceId: opts.priceId,
-      successUrl: opts.successUrl ?? `${window.location.origin}/?dashboard`,
-      cancelUrl: opts.cancelUrl ?? `${window.location.origin}/?dashboard`,
-    },
-  });
-
-  if (res.error) throw res.error;
-  const { url } = res.data as { url: string };
-  return url;
+// Returns the Hotmart product page URL for the Pro plan.
+// Set VITE_HOTMART_PRO_URL in your .env to your product's checkout link.
+export const getHotmartCheckoutUrl = (): string => {
+  const url = import.meta.env.VITE_HOTMART_PRO_URL as string | undefined;
+  return url ?? "https://pay.hotmart.com/XXXXXXXXX"; // replace with real URL
 };
 
 // ── Admin: plan management ────────────────────────────────────────────────────

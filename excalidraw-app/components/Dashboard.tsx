@@ -15,7 +15,7 @@ import {
   getEffectivePlan,
   isTrialActive,
   trialDaysLeft,
-  createCheckoutSession,
+  getHotmartCheckoutUrl,
 } from "../data/supabase";
 import { useAuth } from "../auth/AuthContext";
 import { TEMPLATES } from "../data/templates";
@@ -130,119 +130,92 @@ const TRIAL_DRAWING_LIMIT = 5;
 
 // ─── Upgrade modal ────────────────────────────────────────────────────────────
 
-const PRO_PRICE_ID = import.meta.env.VITE_STRIPE_PRO_PRICE_ID as string | undefined;
-
 const UpgradeModal = ({
   onClose,
   currentPlan = "free",
 }: {
   onClose: () => void;
   currentPlan?: string;
-}) => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleUpgrade = async () => {
-    if (!PRO_PRICE_ID) {
-      setError("Pagos no configurados aún. Contactanos por WhatsApp.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const url = await createCheckoutSession({ priceId: PRO_PRICE_ID });
-      window.location.href = url;
-    } catch (e: any) {
-      setError(e.message || "Error al iniciar el pago.");
-      setLoading(false);
-    }
-  };
-
-  return (
+}) => (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.45)",
+      zIndex: 1000,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+    onClick={onClose}
+  >
     <div
       style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.45)",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        background: "#fff",
+        borderRadius: 16,
+        padding: "36px 40px",
+        width: 460,
+        maxWidth: "95vw",
+        boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
+        textAlign: "center",
       }}
-      onClick={onClose}
+      onClick={(e) => e.stopPropagation()}
     >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 16,
-          padding: "36px 40px",
-          width: 460,
-          maxWidth: "95vw",
-          boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
-          textAlign: "center",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🚀</div>
-        <h2 style={{ margin: "0 0 8px", fontSize: 22, color: "#222" }}>
-          {currentPlan === "trial" ? "Límite del período de prueba" : "Límite del plan gratuito"}
-        </h2>
-        <p style={{ margin: "0 0 8px", fontSize: 15, color: "#555", lineHeight: 1.5 }}>
-          {currentPlan === "trial" ? (
-            <>El trial incluye hasta <strong>{TRIAL_DRAWING_LIMIT} dibujos</strong>.</>
-          ) : (
-            <>El plan gratuito incluye hasta <strong>{FREE_DRAWING_LIMIT} dibujos</strong>.</>
-          )}
-          {" "}Pasate a Pro para crear dibujos ilimitados.
-        </p>
-
-        {/* Features list */}
-        <div style={{ textAlign: "left", margin: "0 0 20px", padding: "16px 20px", background: "#f8f7ff", borderRadius: 10 }}>
-          {[
-            "✅ Dibujos ilimitados",
-            "✅ Carpetas ilimitadas",
-            "✅ Exportación HD",
-            "✅ Colaboración en tiempo real",
-            "✅ Soporte prioritario",
-          ].map((f) => (
-            <div key={f} style={{ fontSize: 13, color: "#444", marginBottom: 5, fontWeight: 500 }}>{f}</div>
-          ))}
-        </div>
-
-        {error && (
-          <div style={{ marginBottom: 12, padding: "10px 14px", background: "#fff0f0", borderRadius: 8, fontSize: 13, color: "#e53e3e" }}>
-            {error}
-          </div>
+      <div style={{ fontSize: 48, marginBottom: 12 }}>🚀</div>
+      <h2 style={{ margin: "0 0 8px", fontSize: 22, color: "#222" }}>
+        {currentPlan === "trial" ? "Límite del período de prueba" : "Límite del plan gratuito"}
+      </h2>
+      <p style={{ margin: "0 0 8px", fontSize: 15, color: "#555", lineHeight: 1.5 }}>
+        {currentPlan === "trial" ? (
+          <>El trial incluye hasta <strong>{TRIAL_DRAWING_LIMIT} dibujos</strong>.</>
+        ) : (
+          <>El plan gratuito incluye hasta <strong>{FREE_DRAWING_LIMIT} dibujos</strong>.</>
         )}
+        {" "}Pasate a Pro para tener dibujos ilimitados.
+      </p>
 
-        <button
-          onClick={handleUpgrade}
-          disabled={loading}
-          style={{
-            padding: "13px 32px",
-            background: loading ? "#ccc" : "linear-gradient(94deg, #4a0fcc, #6128ff)",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            fontSize: 15,
-            fontWeight: 700,
-            cursor: loading ? "not-allowed" : "pointer",
-            width: "100%",
-            marginBottom: 8,
-          }}
-        >
-          {loading ? "Redirigiendo..." : "Actualizar a Pro →"}
-        </button>
-        <button
-          onClick={onClose}
-          style={{ padding: "8px", background: "none", border: "none", cursor: "pointer", color: "#aaa", fontSize: 13 }}
-        >
-          Ahora no
-        </button>
+      <div style={{ textAlign: "left", margin: "16px 0 20px", padding: "16px 20px", background: "#f8f7ff", borderRadius: 10 }}>
+        {[
+          "✅ Dibujos ilimitados",
+          "✅ Carpetas ilimitadas",
+          "✅ Exportación HD",
+          "✅ Soporte prioritario",
+        ].map((f) => (
+          <div key={f} style={{ fontSize: 13, color: "#444", marginBottom: 5, fontWeight: 500 }}>{f}</div>
+        ))}
       </div>
+
+      <a
+        href={getHotmartCheckoutUrl()}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "block",
+          padding: "13px 32px",
+          background: "linear-gradient(94deg, #4a0fcc, #6128ff)",
+          color: "#fff",
+          border: "none",
+          borderRadius: 8,
+          fontSize: 15,
+          fontWeight: 700,
+          cursor: "pointer",
+          width: "100%",
+          marginBottom: 8,
+          textDecoration: "none",
+          boxSizing: "border-box",
+        }}
+      >
+        Obtener Pro →
+      </a>
+      <button
+        onClick={onClose}
+        style={{ padding: "8px", background: "none", border: "none", cursor: "pointer", color: "#aaa", fontSize: 13 }}
+      >
+        Ahora no
+      </button>
     </div>
-  );
-};
+  </div>
+);
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
