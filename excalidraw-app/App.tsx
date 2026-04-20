@@ -1780,10 +1780,92 @@ const navigate = (path: string) => {
   }
 };
 
+// ── PasswordResetModal ────────────────────────────────────────────────────────
+
+const PasswordResetModal = ({ onDone }: { onDone: () => void }) => {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirm) { setError("Las contraseñas no coinciden."); return; }
+    if (password.length < 8) { setError("Mínimo 8 caracteres."); return; }
+    setLoading(true); setError("");
+    const { error } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (error) { setError(error.message); return; }
+    setSuccess(true);
+    setTimeout(onDone, 2000);
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "linear-gradient(135deg,#0f0f1a,#1a0f2e)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "Assistant, system-ui, sans-serif", zIndex: 9999, padding: 20,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 20, padding: "40px 44px",
+        width: 420, maxWidth: "100%", boxShadow: "0 24px 80px rgba(0,0,0,.4)",
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🔐</div>
+          <h2 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 800, color: "#1a1a2e" }}>
+            Nueva contraseña
+          </h2>
+          <p style={{ margin: 0, fontSize: 14, color: "#888" }}>
+            Elegí una contraseña segura para tu cuenta.
+          </p>
+        </div>
+
+        {success ? (
+          <div style={{ textAlign: "center", padding: "20px 0", color: "#059669", fontWeight: 700, fontSize: 16 }}>
+            ✅ Contraseña actualizada. Redirigiendo…
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#444", marginBottom: 6 }}>
+              Nueva contraseña
+            </label>
+            <input
+              type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="mín. 8 caracteres" required minLength={8}
+              style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e0e0f0", borderRadius: 9, fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", marginBottom: 14 }}
+            />
+            <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#444", marginBottom: 6 }}>
+              Repetir contraseña
+            </label>
+            <input
+              type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)}
+              placeholder="repetí la contraseña" required minLength={8}
+              style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e0e0f0", borderRadius: 9, fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", marginBottom: 16 }}
+            />
+            {error && (
+              <div style={{ background: "#fff0f0", border: "1px solid #fecaca", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#dc2626", marginBottom: 14 }}>
+                {error}
+              </div>
+            )}
+            <button type="submit" disabled={loading} style={{
+              width: "100%", padding: 14, background: loading ? "#ccc" : "linear-gradient(94deg,#4a0fcc,#6128ff)",
+              color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 800,
+              cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit",
+            }}>
+              {loading ? "Guardando…" : "Guardar nueva contraseña →"}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ── ExcalidrawAppInner ────────────────────────────────────────────────────────
 
 const ExcalidrawAppInner = () => {
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, passwordRecovery, clearPasswordRecovery } = useAuth();
   const [currentDrawingId, setCurrentDrawingId] = useState<string | null>(null);
   const [currentDrawingType, setCurrentDrawingType] = useState<DrawingType>("canvas");
   const [view, setView] = useState<"canvas" | "dashboard" | "admin">("canvas");
@@ -1937,6 +2019,10 @@ const ExcalidrawAppInner = () => {
         </ExcalidrawAPIProvider>
       </Provider>
     );
+  }
+
+  if (passwordRecovery) {
+    return <PasswordResetModal onDone={clearPasswordRecovery} />;
   }
 
   if (authLoading) {
