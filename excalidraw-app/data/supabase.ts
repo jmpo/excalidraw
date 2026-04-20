@@ -47,11 +47,14 @@ export type Folder = {
   created_at: string;
 };
 
+export type DrawingType = "canvas" | "mindmap";
+
 export type Drawing = {
   id: string;
   user_id: string;
   folder_id: string | null;
   name: string;
+  type: DrawingType;
   content: { elements: unknown[]; appState: Record<string, unknown> };
   thumbnail: string | null;
   created_at: string;
@@ -96,13 +99,16 @@ export const fetchDrawing = async (id: string): Promise<Drawing> => {
   return data as Drawing;
 };
 
-export const createDrawing = async (name: string): Promise<Drawing> => {
+export const createDrawing = async (
+  name: string,
+  type: DrawingType = "canvas",
+): Promise<Drawing> => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from("drawings")
-    .insert({ name, user_id: user?.id })
+    .insert({ name, user_id: user?.id, type })
     .select()
     .single();
   if (error) {

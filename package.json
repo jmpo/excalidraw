@@ -91,5 +91,8 @@
   },
   "resolutions": {
     "strip-ansi": "6.0.1"
+  },
+  "dependencies": {
+    "@mind-elixir/node-menu-neo": "1.0.4"
   }
 }

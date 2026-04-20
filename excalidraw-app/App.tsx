@@ -35,7 +35,7 @@ import {
   isDevEnv,
 } from "@excalidraw/common";
 import polyfill from "@excalidraw/excalidraw/polyfill";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { loadFromBlob } from "@excalidraw/excalidraw/data/blob";
 import { t } from "@excalidraw/excalidraw/i18n";
 
@@ -92,9 +92,12 @@ import {
   fetchProfile,
   supabase,
 } from "./data/supabase";
-import type { Profile } from "./data/supabase";
+import type { DrawingType, Profile } from "./data/supabase";
 import { trackGuestSessionStart, trackGuestActivity } from "./data/guestTracking";
 import { Dashboard } from "./components/Dashboard";
+const MindMapEditor = lazy(() =>
+  import("./components/MindMapEditor").then((m) => ({ default: m.MindMapEditor })),
+);
 import { AdminPanel } from "./components/AdminPanel";
 import { OnboardingForm } from "./components/OnboardingForm";
 import { LoginScreen } from "./components/LoginScreen";
@@ -388,6 +391,33 @@ const initializeScene = async (opts: {
   return { scene: null, isExternalScene: false };
 };
 
+// Module-level cache for library items — fetched once, reused across generations
+let _libItemMapCache: Map<string, any[]> | null = null;
+let _libItemNamesCache: string[] | null = null;
+
+const getLibraryItemsForAI = async (): Promise<{ map: Map<string, any[]>; names: string[] }> => {
+  if (_libItemMapCache && _libItemNamesCache) {
+    return { map: _libItemMapCache, names: _libItemNamesCache };
+  }
+  const map = new Map<string, any[]>();
+  const names: string[] = [];
+  try {
+    const res = await fetch("/edu-library.excalidrawlib");
+    const json = await res.json();
+    (json.libraryItems ?? []).forEach((item: any) => {
+      if (item.name && item.elements?.length) {
+        map.set(item.name, item.elements);
+        names.push(item.name);
+      }
+    });
+    _libItemMapCache = map;
+    _libItemNamesCache = names;
+  } catch {
+    // proceed without library items
+  }
+  return { map, names };
+};
+
 const ExcalidrawWrapper = ({
   drawingId,
   onBackToDashboard,
@@ -537,6 +567,21 @@ const ExcalidrawWrapper = ({
   const [libraryItems, setLibraryItems] = useState<LibraryItems>([]);
   const [showLibrarySidebar, setShowLibrarySidebar] = useState(true);
   const [isPresentationMode, setIsPresentationMode] = useState(false);
+  const [showAiWhiteboardModal, setShowAiWhiteboardModal] = useState(false);
+  const [aiWbTab, setAiWbTab] = useState<"text" | "pdf">("text");
+  const [aiWbText, setAiWbText] = useState("");
+  const [aiWbPdfFile, setAiWbPdfFile] = useState<File | null>(null);
+  const [aiWbPdfPageCount, setAiWbPdfPageCount] = useState(0);
+  const [aiWbLoading, setAiWbLoading] = useState(false);
+  const [aiWbLoadingStep, setAiWbLoadingStep] = useState<"extracting" | "generating" | null>(null);
+  const [aiWbError, setAiWbError] = useState<string | null>(null);
+  // Refs so generateAiWhiteboard always reads latest values without stale closure
+  const aiWbTabRef = useRef(aiWbTab);
+  const aiWbTextRef = useRef(aiWbText);
+  const aiWbPdfFileRef = useRef(aiWbPdfFile);
+  aiWbTabRef.current = aiWbTab;
+  aiWbTextRef.current = aiWbText;
+  aiWbPdfFileRef.current = aiWbPdfFile;
 
   const enterPresentation = useCallback(() => {
     setIsPresentationMode(true);
@@ -550,6 +595,178 @@ const ExcalidrawWrapper = ({
       document.exitFullscreen?.().catch(() => {});
     }
   }, []);
+
+  const generateAiWhiteboard = useCallback(async () => {
+    // Always read from refs to avoid stale closure
+    const tab = aiWbTabRef.current;
+    const wbText = aiWbTextRef.current;
+    const pdfFile = aiWbPdfFileRef.current;
+
+    if (tab === "text" && !wbText.trim()) return;
+    if (tab === "pdf" && !pdfFile) return;
+    setAiWbLoading(true);
+    setAiWbError(null);
+    try {
+      let text = wbText;
+      if (tab === "pdf" && pdfFile) {
+        setAiWbLoadingStep("extracting");
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.mjs`;
+        const ab = await pdfFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+        const pages = Math.min(pdf.numPages, 40);
+        const texts: string[] = [];
+        for (let i = 1; i <= pages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          texts.push(content.items.map((item: any) => item.str).join(" "));
+        }
+        text = texts.join("\n");
+        if (!text.trim()) throw new Error("No se pudo extraer texto del PDF.");
+      }
+      setAiWbLoadingStep("generating");
+
+      // Use cached library items (fetched once per session)
+      const { map: libraryItemMap, names: availableItemNames } = await getLibraryItemsForAI();
+
+      const { data, error } = await supabase.functions.invoke("ai-whiteboard", {
+        body: { text, availableItems: availableItemNames },
+      });
+      if (error) throw new Error(`Edge Function error: ${error.message} | ${JSON.stringify(data)}`);
+      if (!data || !data.sections) throw new Error(`Respuesta inesperada del servidor: ${JSON.stringify(data)}`);
+
+      const wb = data as {
+        title: string;
+        sections: { heading: string; color: string; items: string[] }[];
+        suggestedItems?: string[];
+      };
+      const elements: any[] = [];
+      let idCounter = Date.now();
+      const getId = () => (++idCounter).toString(36);
+      const now = Date.now();
+
+      // Helper: create a properly-structured text element
+      const mkText = (txt: string, x: number, y: number, w: number, fontSize: number, color: string, lineHeight = 1.25) => ({
+        type: "text", id: getId(), x, y, width: w, height: fontSize * lineHeight + 4,
+        angle: 0, strokeColor: color, backgroundColor: "transparent",
+        fillStyle: "solid", strokeWidth: 1, strokeStyle: "solid", roughness: 0, opacity: 100,
+        groupIds: [], frameId: null, roundness: null, seed: ++idCounter, version: 1,
+        versionNonce: ++idCounter, isDeleted: false, boundElements: null,
+        updated: now, link: null, locked: false,
+        text: txt, originalText: txt, fontSize, fontFamily: 2,
+        textAlign: "left", verticalAlign: "top", containerId: null,
+        lineHeight, autoResize: true,
+      });
+
+      // Helper: place a library item's elements at a target position, scaled to targetWidth
+      const placeLibraryElements = (srcElements: any[], targetX: number, targetY: number, targetWidth: number) => {
+        if (!srcElements.length) return;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        srcElements.forEach((el: any) => {
+          minX = Math.min(minX, el.x ?? 0);
+          minY = Math.min(minY, el.y ?? 0);
+          maxX = Math.max(maxX, (el.x ?? 0) + (el.width ?? 0));
+          maxY = Math.max(maxY, (el.y ?? 0) + (el.height ?? 0));
+        });
+        const origW = maxX - minX;
+        const origH = maxY - minY;
+        if (origW <= 0 || origH <= 0) return;
+        const scale = Math.min(targetWidth / origW, 400 / origH); // cap height at 400px
+
+        srcElements.forEach((el: any) => {
+          const placed: any = {
+            ...el,
+            id: getId(),
+            x: targetX + (el.x - minX) * scale,
+            y: targetY + (el.y - minY) * scale,
+            width: (el.width ?? 0) * scale,
+            height: (el.height ?? 0) * scale,
+            seed: ++idCounter,
+            version: 1,
+            versionNonce: ++idCounter,
+            isDeleted: false,
+            updated: now,
+            boundElements: null,
+            groupIds: [],
+            frameId: null,
+          };
+          if (el.fontSize) placed.fontSize = el.fontSize * scale;
+          if (el.points) placed.points = el.points.map(([px, py]: [number, number]) => [px * scale, py * scale]);
+          // Remove fields that cause issues
+          delete placed.containerId;
+          delete placed.boundElementIds;
+          delete placed.strokeSharpness;
+          elements.push(placed);
+        });
+      };
+
+      // Title
+      elements.push(mkText(wb.title, 60, 20, 900, 26, "#111827", 1.3));
+
+      const cols = Math.min(wb.sections.length, 3);
+      const cardW = 320, cardH = 260, gapX = 28, gapY = 24, startX = 60, startY = 80;
+
+      wb.sections.forEach((sec, i) => {
+        const col = i % cols, row = Math.floor(i / cols);
+        const x = startX + col * (cardW + gapX), y = startY + row * (cardH + gapY);
+
+        // Card background
+        elements.push({
+          type: "rectangle", id: getId(), x, y, width: cardW, height: cardH,
+          angle: 0, strokeColor: "#d1d5db", backgroundColor: sec.color,
+          fillStyle: "solid", strokeWidth: 1, strokeStyle: "solid", roughness: 0, opacity: 100,
+          groupIds: [], frameId: null, roundness: { type: 3, value: 8 },
+          seed: ++idCounter, version: 1, versionNonce: ++idCounter,
+          isDeleted: false, boundElements: null, updated: now, link: null, locked: false,
+        });
+
+        // Section heading
+        elements.push(mkText(sec.heading, x + 16, y + 14, cardW - 32, 15, "#1f2937", 1.3));
+        // Divider line
+        elements.push({
+          type: "line", id: getId(), x: x + 16, y: y + 40, width: cardW - 32, height: 0,
+          angle: 0, strokeColor: "#9ca3af", backgroundColor: "transparent",
+          fillStyle: "solid", strokeWidth: 1, strokeStyle: "solid", roughness: 0, opacity: 60,
+          groupIds: [], frameId: null, roundness: null, seed: ++idCounter, version: 1,
+          versionNonce: ++idCounter, isDeleted: false, boundElements: null,
+          updated: now, link: null, locked: false,
+          points: [[0, 0], [cardW - 32, 0]], lastCommittedPoint: null, startBinding: null, endBinding: null, startArrowhead: null, endArrowhead: null,
+        });
+        // Items
+        sec.items.forEach((item, j) => {
+          elements.push(mkText(`• ${item}`, x + 16, y + 50 + j * 36, cardW - 32, 13, "#374151"));
+        });
+      });
+
+      // Place suggested library items below the cards
+      if (wb.suggestedItems?.length) {
+        const totalRows = Math.ceil(wb.sections.length / cols);
+        const cardsBottomY = startY + totalRows * (cardH + gapY) + 20;
+        const totalCardsWidth = cols * cardW + (cols - 1) * gapX;
+        const itemWidth = Math.floor(totalCardsWidth / Math.min(wb.suggestedItems.length, 3)) - 20;
+        let libX = startX;
+
+        wb.suggestedItems.slice(0, 3).forEach((name) => {
+          const srcElements = libraryItemMap.get(name);
+          if (!srcElements) return;
+          placeLibraryElements(srcElements, libX, cardsBottomY, itemWidth);
+          libX += itemWidth + 20;
+        });
+      }
+
+      excalidrawAPI?.updateScene({ elements });
+      excalidrawAPI?.scrollToContent(elements, { animate: true, fitToViewport: true });
+      setShowAiWhiteboardModal(false);
+      setAiWbText("");
+      setAiWbPdfFile(null);
+      setAiWbPdfPageCount(0);
+    } catch (err: any) {
+      setAiWbError(err?.message ?? "Error al generar el contenido. Intentá de nuevo.");
+    } finally {
+      setAiWbLoading(false);
+      setAiWbLoadingStep(null);
+    }
+  }, [excalidrawAPI]);
 
   useEffect(() => {
     const handler = () => {
@@ -1085,6 +1302,23 @@ const ExcalidrawWrapper = ({
               <button
                 style={{
                   padding: "6px 12px",
+                  background: "linear-gradient(135deg,#7c4bff,#6128ff)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  marginRight: 6,
+                }}
+                onClick={() => { setShowAiWhiteboardModal(true); setAiWbError(null); }}
+                title="Generar pizarrón con IA"
+              >
+                ✨ Generar con IA
+              </button>
+              <button
+                style={{
+                  padding: "6px 12px",
                   background: "#fff",
                   color: "#333",
                   border: "1.5px solid #ccc",
@@ -1388,6 +1622,150 @@ const ExcalidrawWrapper = ({
         ✕ Salir
       </button>
     )}
+
+    {/* AI Whiteboard modal */}
+    {showAiWhiteboardModal && (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(15,10,40,0.6)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}
+        onClick={() => !aiWbLoading && setShowAiWhiteboardModal(false)}>
+        <div style={{ background: "#fff", borderRadius: 24, width: 620, maxWidth: "95vw", boxShadow: "0 24px 80px rgba(0,0,0,0.3)", overflow: "hidden" }}
+          onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div style={{ background: "linear-gradient(135deg,#7c4bff 0%,#6128ff 100%)", padding: "24px 28px 20px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>✨</div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 20, color: "#fff", fontWeight: 800 }}>Generar pizarrón con IA</h2>
+                <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.75)" }}>Texto o PDF → tarjetas visuales en el canvas</p>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+              {([["text","📝 Texto"], ["pdf","📄 PDF"]] as const).map(([tab, label]) => (
+                <button key={tab} onClick={() => { if (!aiWbLoading) setAiWbTab(tab); }}
+                  style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: aiWbLoading ? "not-allowed" : "pointer", border: "none", transition: "all .15s",
+                    background: aiWbTab === tab ? "#fff" : "rgba(255,255,255,0.15)",
+                    color: aiWbTab === tab ? "#6128ff" : "rgba(255,255,255,0.85)" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ padding: "24px 28px 28px" }}>
+            {aiWbTab === "text" ? (
+              <>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                  {["Resumen de clase", "Plan de proyecto", "Proceso de trabajo", "Ideas de negocio", "Estrategia de marketing"].map((ex) => (
+                    <button key={ex} onClick={() => setAiWbText(ex + ": ")} disabled={aiWbLoading}
+                      style={{ background: "#f0efff", border: "1px solid #dddaff", borderRadius: 20, padding: "4px 13px", fontSize: 12, color: "#6965db", cursor: "pointer", fontWeight: 500 }}>
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+                <textarea value={aiWbText} onChange={(e) => setAiWbText(e.target.value)} disabled={aiWbLoading}
+                  placeholder={"Describí lo que querés visualizar en el pizarrón…\n\nEjemplo: 'Proceso de venta: prospección, calificación, propuesta, cierre, seguimiento'"}
+                  style={{ width: "100%", height: 180, padding: "14px 16px", border: "1.5px solid #e8e8e8", borderRadius: 12, fontSize: 14, color: "#333", resize: "vertical", outline: "none", fontFamily: "inherit", lineHeight: 1.6, background: aiWbLoading ? "#f9f9f9" : "#fff", boxSizing: "border-box" }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "#6965db"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "#e8e8e8"; }} />
+                <div style={{ marginTop: 6 }}>
+                  <span style={{ fontSize: 12, color: "#bbb" }}>{aiWbText.length} / 8000 caracteres</span>
+                </div>
+              </>
+            ) : (
+              <label
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  const f = e.dataTransfer.files[0];
+                  if (f?.type === "application/pdf") {
+                    setAiWbPdfFile(f);
+                    const pdfjsLib = await import("pdfjs-dist");
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.mjs`;
+                    const ab = await f.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+                    setAiWbPdfPageCount(pdf.numPages);
+                  }
+                }}
+                style={{ display: "block", border: `2px dashed ${aiWbPdfFile ? "#6965db" : "#ddd"}`, borderRadius: 14, padding: "32px 20px", textAlign: "center", cursor: "pointer", background: aiWbPdfFile ? "#f5f3ff" : "#fafafa" }}>
+                <input type="file" accept="application/pdf" style={{ display: "none" }} disabled={aiWbLoading}
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    setAiWbPdfFile(f);
+                    const pdfjsLib = await import("pdfjs-dist");
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.mjs`;
+                    const ab = await f.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+                    setAiWbPdfPageCount(pdf.numPages);
+                  }} />
+                {aiWbPdfFile ? (
+                  <>
+                    <div style={{ fontSize: 40, marginBottom: 8 }}>📄</div>
+                    <div style={{ fontWeight: 700, color: "#6128ff", fontSize: 15 }}>{aiWbPdfFile.name}</div>
+                    <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>{aiWbPdfPageCount} páginas · {(aiWbPdfFile.size / 1024).toFixed(0)} KB</div>
+                    {aiWbPdfPageCount > 40 && <div style={{ fontSize: 12, color: "#f59e0b", marginTop: 6, fontWeight: 600 }}>⚠️ Solo se procesarán las primeras 40 páginas</div>}
+                    <button onClick={(e) => { e.preventDefault(); setAiWbPdfFile(null); setAiWbPdfPageCount(0); }}
+                      style={{ marginTop: 12, background: "none", border: "1px solid #ddd", borderRadius: 8, padding: "4px 14px", fontSize: 12, color: "#888", cursor: "pointer" }}>
+                      Cambiar archivo
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 40, marginBottom: 10 }}>📂</div>
+                    <div style={{ fontWeight: 600, color: "#444", fontSize: 15 }}>Arrastrá tu PDF aquí</div>
+                    <div style={{ fontSize: 13, color: "#999", marginTop: 4 }}>o hacé click para seleccionar</div>
+                    <div style={{ fontSize: 12, color: "#bbb", marginTop: 8 }}>Máx. 40 páginas · PDF en español o inglés</div>
+                  </>
+                )}
+              </label>
+            )}
+
+            {aiWbLoading && (
+              <div style={{ marginTop: 16, background: "#f5f3ff", borderRadius: 12, padding: "14px 18px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ display: "inline-block", width: 16, height: 16, border: "2px solid #c4b5fd", borderTopColor: "#6128ff", borderRadius: "50%", animation: "wbspin 0.7s linear infinite", flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "#6128ff" }}>
+                      {aiWbLoadingStep === "extracting" ? "Extrayendo texto del PDF…" : "Generando pizarrón…"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#a78bfa", marginTop: 2 }}>
+                      {aiWbLoadingStep === "extracting" ? "Leyendo páginas del documento" : "Claude AI está organizando el contenido"}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 12, height: 4, background: "#e9d5ff", borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: "linear-gradient(90deg,#7c4bff,#6128ff)", borderRadius: 4, width: aiWbLoadingStep === "extracting" ? "40%" : "85%", transition: "width 1s ease" }} />
+                </div>
+              </div>
+            )}
+            {aiWbError && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", marginTop: 14, fontSize: 13, color: "#dc2626" }}>
+                ⚠️ {aiWbError}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
+              <button onClick={() => { setShowAiWhiteboardModal(false); setAiWbPdfFile(null); setAiWbPdfPageCount(0); }} disabled={aiWbLoading}
+                style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 10, padding: "10px 20px", fontSize: 14, color: "#555", cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); generateAiWhiteboard(); }}
+                disabled={aiWbLoading || (aiWbTab === "text" ? !aiWbText.trim() : !aiWbPdfFile)}
+                style={{
+                  background: (aiWbLoading || (aiWbTab === "text" ? !aiWbText.trim() : !aiWbPdfFile)) ? "#c4b5fd" : "linear-gradient(135deg,#7c4bff,#6128ff)",
+                  border: "none", borderRadius: 10, padding: "10px 28px", fontSize: 14,
+                  color: "#fff", cursor: (aiWbLoading || (aiWbTab === "text" ? !aiWbText.trim() : !aiWbPdfFile)) ? "not-allowed" : "pointer",
+                  fontWeight: 700, display: "flex", alignItems: "center", gap: 8,
+                }}>
+                {aiWbLoading ? "Procesando…" : "✨ Generar pizarrón"}
+              </button>
+            </div>
+            <p style={{ margin: "12px 0 0", fontSize: 11, color: "#ccc", textAlign: "center" }}>
+              Usa Claude AI · Se agregarán tarjetas al canvas actual
+            </p>
+          </div>
+        </div>
+        <style>{`@keyframes wbspin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    )}
     </div>
   );
 };
@@ -1407,10 +1785,12 @@ const navigate = (path: string) => {
 const ExcalidrawAppInner = () => {
   const { session, loading: authLoading } = useAuth();
   const [currentDrawingId, setCurrentDrawingId] = useState<string | null>(null);
+  const [currentDrawingType, setCurrentDrawingType] = useState<DrawingType>("canvas");
   const [view, setView] = useState<"canvas" | "dashboard" | "admin">("canvas");
   const [initializing, setInitializing] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [showLogin, setShowLogin] = useState(false);
+  const [loginMode, setLoginMode] = useState<"login" | "signup">("login");
   const [guestMode, setGuestMode] = useState(false);
   const [sharedDrawingId, setSharedDrawingId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -1499,6 +1879,9 @@ const ExcalidrawAppInner = () => {
       setCurrentDrawingId(urlDrawingId);
       setView("canvas");
       setInitializing(false);
+      fetchDrawing(urlDrawingId)
+        .then((d) => setCurrentDrawingType(d?.type ?? "canvas"))
+        .catch(() => {});
       return;
     }
     // Check if URL says dashboard explicitly
@@ -1511,11 +1894,12 @@ const ExcalidrawAppInner = () => {
     setInitializing(true);
     fetchDrawings()
       .then(async (drawings) => {
-        const id = drawings.length > 0
-          ? drawings[0].id
-          : (await createDrawing("Mi primer dibujo")).id;
-        navigate(`/?d=${id}`);
-        setCurrentDrawingId(id);
+        const first = drawings.length > 0
+          ? drawings[0]
+          : await createDrawing("Mi primer dibujo");
+        navigate(`/?d=${first.id}`);
+        setCurrentDrawingId(first.id);
+        setCurrentDrawingType(first.type ?? "canvas");
       })
       .catch(async (err) => {
         console.error("fetchDrawings error:", err);
@@ -1560,7 +1944,7 @@ const ExcalidrawAppInner = () => {
 
   if (!session) {
     if (showLogin) {
-      return <LoginScreen />;
+      return <LoginScreen initialMode={loginMode} />;
     }
     if (guestMode) {
       return (
@@ -1630,7 +2014,8 @@ const ExcalidrawAppInner = () => {
     }
     return (
       <LandingPage
-        onLogin={() => setShowLogin(true)}
+        onLogin={() => { setLoginMode("login"); setShowLogin(true); }}
+        onSignup={() => { setLoginMode("signup"); setShowLogin(true); }}
         onGuest={() => {
           setGuestMode(true);
           trackGuestSessionStart().catch(() => {});
@@ -1677,9 +2062,11 @@ const ExcalidrawAppInner = () => {
   if (view === "dashboard") {
     return (
       <Dashboard
-        onOpenDrawing={(id) => {
+        onOpenDrawing={async (id) => {
           navigate(`/?d=${id}`);
           setCurrentDrawingId(id);
+          const d = await fetchDrawing(id).catch(() => null);
+          setCurrentDrawingType(d?.type ?? "canvas");
           setView("canvas");
         }}
         profile={profile}
@@ -1726,12 +2113,25 @@ const ExcalidrawAppInner = () => {
     );
   }
 
+  const goToDashboard = () => { navigate("/?dashboard"); setView("dashboard"); };
+
+  if (currentDrawingType === "mindmap") {
+    return (
+      <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#6965db", fontSize: 16 }}>Cargando mapa mental…</div>}>
+        <MindMapEditor
+          drawingId={currentDrawingId!}
+          onBack={goToDashboard}
+        />
+      </Suspense>
+    );
+  }
+
   return (
     <Provider store={appJotaiStore}>
       <ExcalidrawAPIProvider>
         <ExcalidrawWrapper
           drawingId={currentDrawingId}
-          onBackToDashboard={() => { navigate("/?dashboard"); setView("dashboard"); }}
+          onBackToDashboard={goToDashboard}
         />
       </ExcalidrawAPIProvider>
     </Provider>

@@ -128,3 +128,75 @@
     }
   }
 }
+
+// ── Mind Elixir cursor & pan mode ─────────────────────────────────────────────
+
+// Default: grab cursor on empty canvas, pointer on nodes
+.map-container {
+  cursor: grab !important;
+}
+.map-container:active {
+  cursor: grabbing !important;
+}
+me-tpc {
+  cursor: pointer !important;
+}
+
+// Pan mode: disable all node interactions so every drag pans the canvas
+.me-pan-mode .map-container,
+.me-pan-mode me-tpc,
+.me-pan-mode me-wrapper,
+.me-pan-mode me-parent,
+.me-pan-mode me-root {
+  cursor: grab !important;
+}
+.me-pan-mode .map-container:active,
+.me-pan-mode me-tpc:active {
+  cursor: grabbing !important;
+}
+.me-pan-mode .map-container .selection-area {
+  display: none !important;
+}
+.me-pan-mode me-tpc,
+.me-pan-mode me-wrapper,
+.me-pan-mode me-parent,
+.me-pan-mode me-root {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+// ── Mind Elixir drag & drop visual improvements ────────────────────────────────
+
+// Ghost node shown while dragging
+.mind-elixir-ghost {
+  opacity: 0.85 !important;
+  border: 2px solid #6965db !important;
+  border-radius: 10px !important;
+  background: #f0efff !important;
+  color: #6965db !important;
+  box-shadow: 0 8px 24px rgba(105, 101, 219, 0.4) !important;
+  font-weight: 600 !important;
+  padding: 8px 18px !important;
+  transform: scale(1.05);
+}
+
+// Drop zone indicator (before / in / after)
+.map-container me-parent me-tpc .insert-preview.show {
+  background: #6965db !important;
+  opacity: 0.85 !important;
+  border-radius: 4px !important;
+}
+
+.map-container me-parent me-tpc .insert-preview.before.show,
+.map-container me-parent me-tpc .insert-preview.after.show {
+  height: 4px !important;
+  border-radius: 4px !important;
+  background: #6965db !important;
+  box-shadow: 0 0 8px rgba(105, 101, 219, 0.7) !important;
+}
+
+.map-container me-parent me-tpc .insert-preview.in.show {
+  background: rgba(105, 101, 219, 0.25) !important;
+  border: 2px dashed #6965db !important;
+  border-radius: 8px !important;
+}

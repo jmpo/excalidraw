@@ -22,8 +22,110 @@ import { TEMPLATES } from "../data/templates";
 
 import "./Dashboard.scss";
 
-import type { Drawing, Folder, Profile } from "../data/supabase";
+import type { Drawing, DrawingType, Folder, Profile } from "../data/supabase";
 import type { Template } from "../data/templates";
+
+// ─── Type picker (Canvas vs Mind Map) ─────────────────────────────────────────
+
+const TypePicker = ({
+  onSelect,
+  onCancel,
+}: {
+  onSelect: (type: DrawingType) => void;
+  onCancel: () => void;
+}) => {
+  const [hovered, setHovered] = useState<DrawingType | null>(null);
+
+  const options: { type: DrawingType; icon: string; label: string; desc: string }[] = [
+    {
+      type: "canvas",
+      icon: "🎨",
+      label: "Pizarra libre",
+      desc: "Dibujo libre, formas, flechas y notas",
+    },
+    {
+      type: "mindmap",
+      icon: "🧠",
+      label: "Mapa mental",
+      desc: "Organizar ideas en nodos y ramas",
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.45)",
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      onClick={onCancel}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 14,
+          padding: "28px 32px",
+          width: 460,
+          maxWidth: "95vw",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ margin: "0 0 6px", fontSize: 20, color: "#222" }}>
+          ¿Qué querés crear?
+        </h2>
+        <p style={{ margin: "0 0 20px", fontSize: 13, color: "#888" }}>
+          Elegí el tipo de documento
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          {options.map((opt) => (
+            <div
+              key={opt.type}
+              onClick={() => onSelect(opt.type)}
+              onMouseEnter={() => setHovered(opt.type)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                border: `2px solid ${hovered === opt.type ? "#6965db" : "#e0e0e0"}`,
+                borderRadius: 12,
+                padding: "22px 16px",
+                cursor: "pointer",
+                textAlign: "center",
+                background: hovered === opt.type ? "#f5f4ff" : "#fafafa",
+                transition: "border-color 0.12s, background 0.12s",
+              }}
+            >
+              <div style={{ fontSize: 40, marginBottom: 10 }}>{opt.icon}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#333", marginBottom: 6 }}>
+                {opt.label}
+              </div>
+              <div style={{ fontSize: 12, color: "#888", lineHeight: 1.4 }}>
+                {opt.desc}
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={onCancel}
+          style={{
+            marginTop: 20,
+            float: "right",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "#aaa",
+            fontSize: 13,
+          }}
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+};
 
 // ─── Template picker ──────────────────────────────────────────────────────────
 
@@ -241,6 +343,7 @@ export const Dashboard = ({
   const [renameValue, setRenameValue] = useState("");
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renameFolderValue, setRenameFolderValue] = useState("");
+  const [showTypePicker, setShowTypePicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [newFolderMode, setNewFolderMode] = useState(false);
@@ -291,13 +394,40 @@ export const Dashboard = ({
       setShowUpgradeModal(true);
       return;
     }
-    setShowTemplatePicker(true);
+    setShowTypePicker(true);
+  };
+
+  const handleTypeSelect = (type: DrawingType) => {
+    setShowTypePicker(false);
+    if (type === "mindmap") {
+      handleCreateMindMap();
+    } else {
+      setShowTemplatePicker(true);
+    }
+  };
+
+  const handleCreateMindMap = async () => {
+    try {
+      const drawing = await createDrawing("Sin título", "mindmap");
+      if (activeFolderId && activeFolderId !== "all") {
+        await moveDrawingToFolder(drawing.id, activeFolderId);
+      }
+      onOpenDrawing(drawing.id);
+    } catch (err: any) {
+      alert(
+        "Error al crear el mapa mental.\n\n" +
+        "Asegurate de haber aplicado la migración SQL en Supabase:\n" +
+        "ALTER TABLE public.drawings ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'canvas' CHECK (type IN ('canvas', 'mindmap'));\n\n" +
+        (err?.message ?? String(err)),
+      );
+    }
   };
 
   const handleTemplateSelect = async (template: Template) => {
     setShowTemplatePicker(false);
     const drawing = await createDrawing(
       template.id === "blank" ? "Sin título" : template.name,
+      "canvas",
     );
     if (template.id !== "blank") {
       await saveDrawing(drawing.id, template.content as any);
@@ -397,6 +527,13 @@ export const Dashboard = ({
     <div className="dashboard">
       {showUpgradeModal && (
         <UpgradeModal onClose={() => setShowUpgradeModal(false)} currentPlan={effectivePlan} />
+      )}
+
+      {showTypePicker && (
+        <TypePicker
+          onSelect={handleTypeSelect}
+          onCancel={() => setShowTypePicker(false)}
+        />
       )}
 
       {showTemplatePicker && (
@@ -839,14 +976,29 @@ export const Dashboard = ({
                         {selectedIds.has(drawing.id) && <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>✓</span>}
                       </div>
                     )}
+                    {drawing.type === "mindmap" && (
+                      <div style={{
+                        position: "absolute", top: 8, left: 8,
+                        background: "#6965db", color: "#fff",
+                        borderRadius: 6, padding: "2px 7px",
+                        fontSize: 10, fontWeight: 700, zIndex: 2,
+                        letterSpacing: 0.3,
+                      }}>
+                        Mapa mental
+                      </div>
+                    )}
                     {drawing.thumbnail ? (
                       <img src={drawing.thumbnail} alt={drawing.name} />
                     ) : (
                       <div className="dashboard-card-placeholder">
-                        <svg viewBox="0 0 24 24" fill="none" width="32" height="32">
-                          <rect x="3" y="3" width="18" height="18" rx="2" stroke="#c8c6e8" strokeWidth="1.5" />
-                          <path d="M7 14L10 11L13 14L17 10" stroke="#c8c6e8" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
+                        {drawing.type === "mindmap" ? (
+                          <span style={{ fontSize: 36 }}>🧠</span>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" width="32" height="32">
+                            <rect x="3" y="3" width="18" height="18" rx="2" stroke="#c8c6e8" strokeWidth="1.5" />
+                            <path d="M7 14L10 11L13 14L17 10" stroke="#c8c6e8" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                        )}
                       </div>
                     )}
                     {lockedIds.has(drawing.id) && (

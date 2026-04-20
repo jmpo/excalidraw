@@ -4,8 +4,8 @@ import { signInWithEmail, signUpWithEmail } from "../data/supabase";
 
 import "./LoginScreen.scss";
 
-export const LoginScreen = () => {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+export const LoginScreen = ({ initialMode = "login" }: { initialMode?: "login" | "signup" }) => {
+  const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -42,16 +42,11 @@ export const LoginScreen = () => {
     <div className="login-screen">
       <div className="login-card">
         <div className="login-logo">
-          <svg viewBox="0 0 24 24" fill="none" width="40" height="40">
-            <path
-              d="M3 17L9 11L13 15L21 7"
-              stroke="#6965db"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+          <svg viewBox="0 0 28 28" fill="none" width="36" height="36">
+            <rect width="28" height="28" rx="8" fill="#6128ff" />
+            <path d="M6 20L11 13L15 17L22 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span>Excalidraw</span>
+          <span>EduDraw</span>
         </div>
 
         <h1>{mode === "login" ? "Iniciar sesión" : "Crear cuenta"}</h1>

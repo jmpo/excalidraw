@@ -78,6 +78,10 @@ export default defineConfig(({ mode }) => {
         },
       ],
     },
+    optimizeDeps: {
+      include: ["pdfjs-dist"],
+      exclude: ["pdfjs-dist/build/pdf.worker.mjs"],
+    },
     build: {
       outDir: "build",
       rollupOptions: {
@@ -214,10 +218,10 @@ export default defineConfig(({ mode }) => {
           maximumFileSizeToCacheInBytes: 2.3 * 1024 ** 2, // 2.3MB
         },
         manifest: {
-          short_name: "Excalidraw",
-          name: "Excalidraw",
+          short_name: "EduDraw",
+          name: "EduDraw — Pizarra y Mapas Mentales con IA",
           description:
-            "Excalidraw is a whiteboard tool that lets you easily sketch diagrams that have a hand-drawn feel to them.",
+            "EduDraw es tu herramienta de pizarra colaborativa y mapas mentales con IA para educadores.",
           icons: [
             {
               src: "android-chrome-192x192.png",
