@@ -1895,9 +1895,13 @@ const ExcalidrawAppInner = () => {
     setInitializing(true);
     fetchDrawings()
       .then(async (drawings) => {
-        const first = drawings.length > 0
-          ? drawings[0]
-          : await createDrawing("Mi primer dibujo");
+        if (drawings.length === 0) {
+          // New user — let Dashboard handle the first drawing creation
+          navigate("/?dashboard");
+          setView("dashboard");
+          return;
+        }
+        const first = drawings[0];
         navigate(`/?d=${first.id}`);
         setCurrentDrawingId(first.id);
         setCurrentDrawingType(first.type ?? "canvas");

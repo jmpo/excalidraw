@@ -1,16 +1,22 @@
 import { useState } from "react";
 
-import { signInWithEmail, signUpWithEmail } from "../data/supabase";
+import { signInWithEmail, signUpWithEmail, resetPasswordForEmail } from "../data/supabase";
 
 import "./LoginScreen.scss";
 
 export const LoginScreen = ({ initialMode = "login" }: { initialMode?: "login" | "signup" }) => {
-  const [mode, setMode] = useState<"login" | "signup">(initialMode);
+  const [mode, setMode] = useState<"login" | "signup" | "reset">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const switchMode = (next: "login" | "signup" | "reset") => {
+    setMode(next);
+    setError("");
+    setMessage("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,17 +25,17 @@ export const LoginScreen = ({ initialMode = "login" }: { initialMode?: "login" |
     setLoading(true);
 
     try {
-      if (mode === "login") {
+      if (mode === "reset") {
+        const { error } = await resetPasswordForEmail(email);
+        if (error) throw error;
+        setMessage("✅ Te enviamos un link para restablecer tu contraseña. Revisá tu correo.");
+      } else if (mode === "login") {
         const { error } = await signInWithEmail(email, password);
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
       } else {
         const { error } = await signUpWithEmail(email, password);
-        if (error) {
-          throw error;
-        }
-        setMessage("Revisa tu correo para confirmar tu cuenta.");
+        if (error) throw error;
+        setMessage("Revisá tu correo para confirmar tu cuenta.");
       }
     } catch (err: any) {
       setError(err.message || "Ocurrió un error.");
@@ -49,7 +55,17 @@ export const LoginScreen = ({ initialMode = "login" }: { initialMode?: "login" |
           <span>EduDraw</span>
         </div>
 
-        <h1>{mode === "login" ? "Iniciar sesión" : "Crear cuenta"}</h1>
+        <h1>
+          {mode === "login" ? "Iniciar sesión"
+            : mode === "signup" ? "Crear cuenta"
+            : "Recuperar contraseña"}
+        </h1>
+
+        {mode === "reset" && (
+          <p style={{ fontSize: 14, color: "#666", marginBottom: 16, lineHeight: 1.5 }}>
+            Ingresá tu email y te enviamos un link para crear una nueva contraseña.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit}>
           <label>
@@ -64,17 +80,32 @@ export const LoginScreen = ({ initialMode = "login" }: { initialMode?: "login" |
             />
           </label>
 
-          <label>
-            Contraseña
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="mín. 8 caracteres"
-              required
-              minLength={8}
-            />
-          </label>
+          {mode !== "reset" && (
+            <label>
+              Contraseña
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="mín. 8 caracteres"
+                required
+                minLength={8}
+              />
+            </label>
+          )}
+
+          {mode === "login" && (
+            <div style={{ textAlign: "right", marginTop: -8, marginBottom: 8 }}>
+              <button
+                type="button"
+                className="login-btn-toggle"
+                style={{ fontSize: 12, padding: 0 }}
+                onClick={() => switchMode("reset")}
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
+          )}
 
           {error && <p className="login-error">{error}</p>}
           {message && <p className="login-message">{message}</p>}
@@ -84,26 +115,30 @@ export const LoginScreen = ({ initialMode = "login" }: { initialMode?: "login" |
             disabled={loading}
             className="login-btn-primary"
           >
-            {loading
-              ? "Cargando..."
-              : mode === "login"
-              ? "Entrar"
-              : "Registrarme"}
+            {loading ? "Cargando..."
+              : mode === "login" ? "Entrar"
+              : mode === "signup" ? "Registrarme"
+              : "Enviar link de recuperación"}
           </button>
         </form>
 
-        <button
-          className="login-btn-toggle"
-          onClick={() => {
-            setMode(mode === "login" ? "signup" : "login");
-            setError("");
-            setMessage("");
-          }}
-        >
-          {mode === "login"
-            ? "¿No tienes cuenta? Regístrate"
-            : "¿Ya tienes cuenta? Inicia sesión"}
-        </button>
+        {mode !== "reset" ? (
+          <button
+            className="login-btn-toggle"
+            onClick={() => switchMode(mode === "login" ? "signup" : "login")}
+          >
+            {mode === "login"
+              ? "¿No tienes cuenta? Regístrate"
+              : "¿Ya tienes cuenta? Inicia sesión"}
+          </button>
+        ) : (
+          <button
+            className="login-btn-toggle"
+            onClick={() => switchMode("login")}
+          >
+            ← Volver al inicio de sesión
+          </button>
+        )}
       </div>
     </div>
   );

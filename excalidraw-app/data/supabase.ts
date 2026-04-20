@@ -72,6 +72,11 @@ export const signUpWithEmail = (email: string, password: string) =>
 export const signOut = (opts?: { scope?: "global" | "local" | "others" }) =>
   supabase.auth.signOut(opts);
 
+export const resetPasswordForEmail = (email: string) =>
+  supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/?reset_password=1`,
+  });
+
 export const getSession = () => supabase.auth.getSession();
 
 // ── Drawings CRUD ─────────────────────────────────────────────────────────────
