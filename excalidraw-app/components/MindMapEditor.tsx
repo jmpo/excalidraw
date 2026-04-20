@@ -210,9 +210,11 @@ const MIND_TEMPLATES: { name: string; icon: string; desc: string; data: MindElix
 export const MindMapEditor = ({
   drawingId,
   onBack,
+  isGuest = false,
 }: {
   drawingId: string;
   onBack: () => void;
+  isGuest?: boolean;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const meRef = useRef<MindElixirInstance | null>(null);
@@ -243,7 +245,7 @@ export const MindMapEditor = ({
   const [aiError, setAiError] = useState<string | null>(null);
 
   const scheduleSave = (themeIdx?: number) => {
-    if (!meRef.current) return;
+    if (!meRef.current || isGuest) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       const data = meRef.current!.getData();
@@ -283,33 +285,39 @@ export const MindMapEditor = ({
       setZoomPct(Math.round(val * 100));
     });
 
-    fetchDrawing(drawingId).then((d) => {
-      setDrawingName(d.name);
-      const content = d.content as any;
-      const isNew = !content?.mindElixir;
-      const data: MindElixirData =
-        content?.mindElixir ?? MindElixir.new(d.name || "Mi idea central");
-      me.init(data);
-      if (isNew) setShowTemplates(true);
-
-      // Restore saved theme
-      const savedIdx = content?.themeIdx ?? 0;
-      if (savedIdx !== 0) {
-        setActiveTheme(savedIdx);
-        activeThemeRef.current = savedIdx;
-        me.changeTheme(THEMES[savedIdx], true);
-      }
-
-      // Restore saved layout
-      const savedLayout = content?.layoutIdx ?? 0;
-      if (savedLayout !== 0) {
-        setActiveLayout(savedLayout);
-        const layoutMethods = [(me as any).initSide, (me as any).initRight, (me as any).initLeft];
-        layoutMethods[savedLayout]?.call(me);
-      }
-
+    if (isGuest) {
+      me.init(MindElixir.new("Mi idea central"));
+      setShowTemplates(true);
       setLoaded(true);
-    });
+    } else {
+      fetchDrawing(drawingId).then((d) => {
+        setDrawingName(d.name);
+        const content = d.content as any;
+        const isNew = !content?.mindElixir;
+        const data: MindElixirData =
+          content?.mindElixir ?? MindElixir.new(d.name || "Mi idea central");
+        me.init(data);
+        if (isNew) setShowTemplates(true);
+
+        // Restore saved theme
+        const savedIdx = content?.themeIdx ?? 0;
+        if (savedIdx !== 0) {
+          setActiveTheme(savedIdx);
+          activeThemeRef.current = savedIdx;
+          me.changeTheme(THEMES[savedIdx], true);
+        }
+
+        // Restore saved layout
+        const savedLayout = content?.layoutIdx ?? 0;
+        if (savedLayout !== 0) {
+          setActiveLayout(savedLayout);
+          const layoutMethods = [(me as any).initSide, (me as any).initRight, (me as any).initLeft];
+          layoutMethods[savedLayout]?.call(me);
+        }
+
+        setLoaded(true);
+      });
+    }
 
     let operationJustFired = false;
     let draggingTopNodeId: string | null = null;
@@ -531,6 +539,7 @@ export const MindMapEditor = ({
     const name = val.trim() || "Sin título";
     setDrawingName(name);
     setEditingName(false);
+    if (isGuest) return;
     const data = meRef.current?.getData();
     if (data) saveDrawing(drawingId, { mindElixir: data } as any);
   };

@@ -1,4 +1,5 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { signUpWithEmail } from "../data/supabase";
 
 interface Props {
   onLogin: () => void;
@@ -591,6 +592,47 @@ const css = `
     .lp-diff { padding:56px 20px; }
     .lp-faq { padding:56px 20px; }
   }
+
+  /* ── Inline signup form ──────────────────────────────────────────── */
+  .lp-signup-section {
+    background:linear-gradient(135deg,#2d0a8e 0%,#6128ff 50%,#8b5cf6 100%);
+    background-size:200% 200%; animation:gradShift 6s ease infinite;
+    padding:96px 24px; position:relative; overflow:hidden;
+  }
+  .lp-signup-section::before {
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(ellipse 70% 60% at 50% 120%,rgba(255,255,255,.15) 0%,transparent 65%);
+    pointer-events:none;
+  }
+  .lp-signup-inner { position:relative; z-index:1; max-width:460px; margin:0 auto; text-align:center; }
+  .lp-signup-inner h2 { font-size:clamp(28px,4vw,48px); font-weight:800; letter-spacing:-.8px; color:#fff; margin-bottom:12px; line-height:1.1; }
+  .lp-signup-inner > p { font-size:17px; color:rgba(255,255,255,.7); margin-bottom:36px; line-height:1.6; }
+  .lp-signup-card {
+    background:rgba(255,255,255,.97); border-radius:20px; padding:36px 32px;
+    box-shadow:0 24px 80px rgba(0,0,0,.3);
+  }
+  .lp-signup-card label { display:block; text-align:left; font-size:13px; font-weight:700; color:#444; margin-bottom:6px; }
+  .lp-signup-card input {
+    width:100%; padding:13px 16px; border:1.5px solid #e0e0e0; border-radius:10px;
+    font-size:15px; font-family:inherit; outline:none; transition:border-color .15s;
+    margin-bottom:16px; color:#111;
+  }
+  .lp-signup-card input:focus { border-color:#6128ff; box-shadow:0 0 0 3px rgba(97,40,255,.12); }
+  .lp-signup-card input::placeholder { color:#bbb; }
+  .lp-signup-submit {
+    width:100%; padding:15px; background:linear-gradient(135deg,#7c4bff,#6128ff);
+    color:#fff; border:none; border-radius:10px; font-size:16px; font-weight:700;
+    cursor:pointer; font-family:inherit; transition:all .18s; margin-top:4px;
+    box-shadow:0 4px 20px rgba(97,40,255,.4);
+  }
+  .lp-signup-submit:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 32px rgba(97,40,255,.5); }
+  .lp-signup-submit:disabled { opacity:.65; cursor:default; }
+  .lp-signup-error { color:#dc2626; font-size:13px; margin-bottom:12px; text-align:left; background:#fff5f5; border:1px solid #fecaca; border-radius:8px; padding:8px 12px; }
+  .lp-signup-success { color:#059669; font-size:14px; text-align:center; background:#f0fdf4; border:1px solid #a7f3d0; border-radius:10px; padding:16px; font-weight:600; }
+  .lp-signup-toggle { font-size:13px; color:#888; margin-top:16px; }
+  .lp-signup-toggle button { background:none; border:none; color:#6128ff; font-weight:700; cursor:pointer; font-family:inherit; font-size:13px; padding:0; }
+  .lp-signup-trust { display:flex; align-items:center; justify-content:center; gap:20px; margin-top:24px; flex-wrap:wrap; }
+  .lp-signup-trust span { font-size:12px; color:rgba(255,255,255,.55); display:flex; align-items:center; gap:5px; }
 `;
 
 // ── Hero screenshot preview ────────────────────────────────────────────────────
@@ -633,7 +675,29 @@ const HeroPreview = () => (
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => {
-  const goSignup = onSignup ?? onLogin;
+  const goSignup = () => {
+    document.getElementById("registro")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+    setFormLoading(true);
+    try {
+      const { error } = await signUpWithEmail(email, password);
+      if (error) throw error;
+      onLogin();
+    } catch (err: any) {
+      setFormError(err.message || "Ocurrió un error.");
+      setFormLoading(false);
+    }
+  };
+
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -1060,7 +1124,8 @@ export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => 
             <div className="lp-pcard">
               <h3>Free</h3>
               <div className="lp-pprice">$0 <span>/ mes</span></div>
-              <p className="lp-pdesc">Para conocer la plataforma y empezar</p>
+              <p className="lp-pdesc">Para empezar sin compromiso</p>
+              <p className="lp-ptrial">🎁 7 días con acceso completo · IA incluida · Sin tarjeta · Después el acceso se limita</p>
               <ul className="lp-pfeats">
                 <li>2 documentos (pizarras o mapas)</li>
                 <li>Guardado automático en la nube</li>
@@ -1069,15 +1134,17 @@ export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => 
                 <li>Compartir por link de solo lectura</li>
               </ul>
               <button className="lp-btn lp-btn-outline" style={{ width: "100%", padding: 14 }} onClick={goSignup}>
-                Empezar gratis
+                Empezar gratis →
               </button>
             </div>
             <div className="lp-pcard featured">
               <div className="lp-pbadge">✨ Más popular</div>
               <h3>Pro</h3>
               <div className="lp-pprice">$6 <span>/ mes</span></div>
-              <p className="lp-pdesc">Para docentes y creadores de cursos activos</p>
-              <p className="lp-ptrial">🎁 7 días con acceso completo · IA incluida · Sin tarjeta · Después el acceso se limita</p>
+              <p className="lp-pdesc">Para docentes que quieren crear sin límites ni estrés</p>
+              <p className="lp-ptrial" style={{ background: "rgba(97,40,255,.08)", borderColor: "rgba(97,40,255,.2)", color: "#5b21b6" }}>
+                🚀 Acceso completo y permanente · Sin límites · Sin preocupaciones
+              </p>
               <ul className="lp-pfeats">
                 <li>✨ IA para resumir y organizar contenido</li>
                 <li>Documentos ilimitados</li>
@@ -1086,8 +1153,9 @@ export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => 
                 <li>Compartir por link + exportar PNG/SVG</li>
                 <li>Soporte prioritario</li>
               </ul>
-              <button className="lp-btn lp-btn-primary" style={{ width: "100%", padding: 14 }} onClick={goSignup}>
-                Empezar gratis y crear mi primera clase →
+              <button className="lp-btn lp-btn-primary" style={{ width: "100%", padding: 14 }}
+                onClick={() => { /* TODO: link to Stripe checkout */ window.location.href = "#registro"; }}>
+                Quiero el plan Pro →
               </button>
             </div>
           </div>
@@ -1129,24 +1197,50 @@ export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => 
         </div>
       </div>
 
-      {/* ── CTA ── */}
-      <div className="lp-cta">
-        <div className="lp-cta-inner">
-          <h2>Dejá de perder tiempo y<br />creá tu próxima clase hoy</h2>
-          <p>Empezá gratis y descubrí una forma más simple de enseñar.<br />Acceso completo durante 7 días · IA incluida · Sin tarjeta.</p>
-          <button
-            className="lp-btn lp-btn-white lp-btn-lg"
-            onClick={goSignup}
-            style={{ fontSize: 18, padding: "16px 48px" }}
-          >
-            Probar gratis ahora →
-          </button>
-          <div className="lp-cta-trust">
-            <span>✓ Sin tarjeta de crédito</span>
-            <span>✓ IA incluida 7 días</span>
-            <span>✓ Cancela cuando quieras</span>
+      {/* ── SIGNUP FORM (CTA final) ── */}
+      <div className="lp-signup-section" id="registro">
+        <div className="lp-signup-inner">
+          <h2>Empieza gratis y crea<br />tu primera clase hoy</h2>
+          <p>
+            Accedé a todas las funciones durante 7 días y descubrí lo fácil que puede ser
+            crear clases claras, visuales y bien organizadas.
+          </p>
+          <p style={{ fontSize: 15, color: "rgba(255,255,255,.8)", marginBottom: 8 }}>
+            ✨ IA incluida para resumir y estructurar tus ideas automáticamente
+          </p>
+          <p style={{ fontSize: 15, color: "rgba(255,255,255,.75)", marginBottom: 32 }}>
+            👉 No necesitás tarjeta de crédito
+          </p>
+
+          <div className="lp-signup-card">
+            <form onSubmit={handleFormSubmit}>
+              <label>Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@email.com" required autoComplete="email" />
+
+              <label>Contraseña</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="mín. 8 caracteres" required minLength={8} autoComplete="new-password" />
+
+              {formError && <div className="lp-signup-error">{formError}</div>}
+
+              <button type="submit" disabled={formLoading} className="lp-signup-submit">
+                {formLoading ? "Creando tu cuenta…" : "🚀 Crear mi cuenta gratis"}
+              </button>
+
+              <p style={{ fontSize: 12, color: "#999", textAlign: "center", marginTop: 14, lineHeight: 1.6 }}>
+                Después de probarlo, podés seguir usando la herramienta en modo limitado
+                o desbloquear todo para seguir creando sin límites.<br />
+                <strong style={{ color: "#6128ff" }}>💥 Suficiente para probar. Difícil volver atrás.</strong>
+              </p>
+            </form>
           </div>
-          <p className="lp-cta-note">Menos de lo que cuesta un café al mes · Para profesores y creadores de cursos en LATAM</p>
+
+          <div className="lp-signup-trust">
+            <span>✅ Sin tarjeta de crédito</span>
+            <span>✅ Acceso completo por 7 días</span>
+            <span>✅ Cancelá cuando quieras</span>
+          </div>
         </div>
       </div>
 

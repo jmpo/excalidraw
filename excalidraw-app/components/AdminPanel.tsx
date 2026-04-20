@@ -183,6 +183,7 @@ type GuestRow = {
   created_at: string;
   last_active: string;
   element_count: number;
+  tool?: "canvas" | "mindmap" | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -747,26 +748,41 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
 
             {/* ── Guests tab ── */}
             {tab === "guests" && (
-              <div
-                style={{
-                  background: "#fff",
-                  borderRadius: 14,
-                  padding: "24px 28px",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: 700,
-                    fontSize: 16,
-                    marginBottom: 20,
-                    color: "#1a1a2e",
-                  }}
-                >
-                  Sesiones guest recientes ({activeGuests.length})
+              <>
+                {/* Tool interest summary */}
+                {activeGuests.length > 0 && (() => {
+                  const canvasCount = activeGuests.filter(g => !g.tool || g.tool === "canvas").length;
+                  const mindmapCount = activeGuests.filter(g => g.tool === "mindmap").length;
+                  const total = activeGuests.length;
+                  const canvasPct = Math.round((canvasCount / total) * 100);
+                  const mindmapPct = Math.round((mindmapCount / total) * 100);
+                  return (
+                    <div style={{ background: "#fff", borderRadius: 14, padding: "20px 28px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", marginBottom: 16 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a2e", marginBottom: 14 }}>
+                        📊 Interés por herramienta
+                      </div>
+                      <div style={{ display: "flex", gap: 12 }}>
+                        <div style={{ flex: 1, background: "#ede9fe", borderRadius: 12, padding: "14px 18px" }}>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: "#5b21b6" }}>{canvasPct}%</div>
+                          <div style={{ fontSize: 13, color: "#7c3aed", fontWeight: 600 }}>🎨 Pizarra</div>
+                          <div style={{ fontSize: 11, color: "#a78bfa" }}>{canvasCount} sesiones</div>
+                        </div>
+                        <div style={{ flex: 1, background: "#dcfce7", borderRadius: 12, padding: "14px 18px" }}>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: "#166534" }}>{mindmapPct}%</div>
+                          <div style={{ fontSize: 13, color: "#15803d", fontWeight: 600 }}>🧠 Mapa mental</div>
+                          <div style={{ fontSize: 11, color: "#4ade80" }}>{mindmapCount} sesiones</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div style={{ background: "#fff", borderRadius: 14, padding: "24px 28px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20, color: "#1a1a2e" }}>
+                    Sesiones guest recientes ({activeGuests.length})
+                  </div>
+                  <GuestTable guests={activeGuests} />
                 </div>
-                <GuestTable guests={activeGuests} />
-              </div>
+              </>
             )}
           </>
         )}
@@ -787,7 +803,7 @@ const UserTable = ({
   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
     <thead>
       <tr style={{ borderBottom: "2px solid #f0eeff" }}>
-        {["Nombre / Email", "Plan", "Registrado", "Dibujos"].map((h) => (
+        {["Nombre / Email", "Plan", "Registrado", "Dibujos", "Vencimiento", "Días restantes"].map((h) => (
           <th key={h} style={{ textAlign: "left", padding: "8px 12px", color: "#888", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
             {h}
           </th>
@@ -795,7 +811,11 @@ const UserTable = ({
       </tr>
     </thead>
     <tbody>
-      {users.map((u) => (
+      {users.map((u) => {
+        const daysLeft = trialDaysLeft(u);
+        const trialActive = isTrialActive(u);
+        const trialExpired = u.plan === "trial" && !trialActive && !!u.trial_ends_at;
+        return (
         <tr key={u.id} style={{ borderBottom: "1px solid #f5f5f5", cursor: onSelect ? "pointer" : "default" }}
           onClick={() => onSelect?.(u)}
           onMouseEnter={(e) => { if (onSelect) (e.currentTarget as HTMLElement).style.background = "#fafaf9"; }}
@@ -813,8 +833,27 @@ const UserTable = ({
               {u.drawing_count}
             </span>
           </td>
+          <td style={{ padding: "10px 12px", color: "#666", fontSize: 12 }}>
+            {u.trial_ends_at ? fmtDate(u.trial_ends_at) : "—"}
+          </td>
+          <td style={{ padding: "10px 12px" }}>
+            {u.plan === "pro" ? (
+              <span style={{ fontSize: 11, color: "#059669", fontWeight: 700 }}>∞ Pro</span>
+            ) : trialActive ? (
+              <span style={{ background: daysLeft <= 2 ? "#fef9c3" : "#dcfce7", color: daysLeft <= 2 ? "#92400e" : "#166534", padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 12 }}>
+                {daysLeft}d
+              </span>
+            ) : trialExpired ? (
+              <span style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 12 }}>
+                Expirado
+              </span>
+            ) : (
+              <span style={{ fontSize: 11, color: "#bbb" }}>—</span>
+            )}
+          </td>
         </tr>
-      ))}
+        );
+      })}
     </tbody>
   </table>
 );
@@ -825,7 +864,7 @@ const GuestTable = ({ guests }: { guests: GuestRow[] }) => (
   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
     <thead>
       <tr style={{ borderBottom: "2px solid #f0eeff" }}>
-        {["Session ID", "Primera visita", "Última actividad", "Elementos"].map(
+        {["Session ID", "Herramienta", "Primera visita", "Última actividad", "Elementos"].map(
           (h) => (
             <th
               key={h}
@@ -848,15 +887,15 @@ const GuestTable = ({ guests }: { guests: GuestRow[] }) => (
     <tbody>
       {guests.map((g) => (
         <tr key={g.session_id} style={{ borderBottom: "1px solid #f5f5f5" }}>
-          <td
-            style={{
-              padding: "10px 12px",
-              color: "#aaa",
-              fontFamily: "monospace",
-              fontSize: 11,
-            }}
-          >
+          <td style={{ padding: "10px 12px", color: "#aaa", fontFamily: "monospace", fontSize: 11 }}>
             {g.session_id.slice(0, 16)}...
+          </td>
+          <td style={{ padding: "10px 12px" }}>
+            {g.tool === "mindmap" ? (
+              <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 12 }}>🧠 Mapa mental</span>
+            ) : (
+              <span style={{ background: "#ede9fe", color: "#5b21b6", padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 12 }}>🎨 Pizarra</span>
+            )}
           </td>
           <td style={{ padding: "10px 12px", color: "#666" }}>
             {fmtDate(g.created_at)}

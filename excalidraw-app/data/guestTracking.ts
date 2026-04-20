@@ -11,15 +11,27 @@ function getOrCreateGuestId(): string {
   return id;
 }
 
-export async function trackGuestSessionStart(): Promise<void> {
+export async function trackGuestSessionStart(tool: "canvas" | "mindmap" = "canvas"): Promise<void> {
   const sessionId = getOrCreateGuestId();
   await supabase.from("guest_sessions").upsert(
     {
       session_id: sessionId,
       last_active: new Date().toISOString(),
+      tool,
     },
     { onConflict: "session_id" },
   ).then(({ error }) => {
+    if (error) console.warn("Guest tracking error:", error.message);
+  });
+}
+
+export async function trackGuestToolSwitch(tool: "canvas" | "mindmap"): Promise<void> {
+  const sessionId = localStorage.getItem(STORAGE_KEY);
+  if (!sessionId) return;
+  await supabase.from("guest_sessions").update({
+    last_active: new Date().toISOString(),
+    tool,
+  }).eq("session_id", sessionId).then(({ error }) => {
     if (error) console.warn("Guest tracking error:", error.message);
   });
 }

@@ -93,7 +93,7 @@ import {
   supabase,
 } from "./data/supabase";
 import type { DrawingType, Profile } from "./data/supabase";
-import { trackGuestSessionStart, trackGuestActivity } from "./data/guestTracking";
+import { trackGuestSessionStart, trackGuestActivity, trackGuestToolSwitch } from "./data/guestTracking";
 import { Dashboard } from "./components/Dashboard";
 const MindMapEditor = lazy(() =>
   import("./components/MindMapEditor").then((m) => ({ default: m.MindMapEditor })),
@@ -1792,6 +1792,7 @@ const ExcalidrawAppInner = () => {
   const [showLogin, setShowLogin] = useState(false);
   const [loginMode, setLoginMode] = useState<"login" | "signup">("login");
   const [guestMode, setGuestMode] = useState(false);
+  const [guestTool, setGuestTool] = useState<"canvas" | "mindmap" | null>(null);
   const [sharedDrawingId, setSharedDrawingId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -1947,67 +1948,144 @@ const ExcalidrawAppInner = () => {
       return <LoginScreen initialMode={loginMode} />;
     }
     if (guestMode) {
+      const enterTool = (tool: "canvas" | "mindmap") => {
+        setGuestTool(tool);
+        trackGuestSessionStart(tool).catch(() => {});
+      };
+      const exitGuest = () => { setGuestMode(false); setGuestTool(null); };
+
+      // ── Tool picker ──────────────────────────────────────────────────────────
+      if (!guestTool) {
+        return (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "linear-gradient(135deg, #0a001f 0%, #1a0050 50%, #06060f 100%)",
+            display: "flex", flexDirection: "column", alignItems: "center",
+            justifyContent: "center", fontFamily: "Assistant, system-ui, sans-serif",
+            padding: 24,
+          }}>
+            <button onClick={exitGuest} style={{
+              position: "absolute", top: 20, right: 20,
+              background: "rgba(255,255,255,.1)", border: "none", color: "rgba(255,255,255,.6)",
+              borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontFamily: "inherit",
+            }}>← Volver</button>
+
+            <div style={{ textAlign: "center", marginBottom: 48 }}>
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                background: "rgba(196,181,253,.15)", border: "1px solid rgba(196,181,253,.3)",
+                borderRadius: 99, padding: "6px 18px", fontSize: 12, fontWeight: 700,
+                color: "#c4b5fd", textTransform: "uppercase", letterSpacing: 1, marginBottom: 20,
+              }}>✏️ Modo invitado · Sin registro</div>
+              <h2 style={{
+                fontSize: "clamp(28px, 4vw, 48px)", fontWeight: 800, color: "#fff",
+                margin: "0 0 12px", letterSpacing: -1, lineHeight: 1.1,
+              }}>¿Qué querés probar?</h2>
+              <p style={{ fontSize: 16, color: "rgba(255,255,255,.5)", margin: 0 }}>
+                Probá sin registrarte · Tus cambios no se guardan en la nube
+              </p>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, maxWidth: 640, width: "100%" }}>
+              {([
+                {
+                  tool: "canvas" as const,
+                  emoji: "🎨",
+                  title: "Pizarra libre",
+                  desc: "Canvas infinito para diagramas, formas, flechas y dibujo libre. Con IA para generar tarjetas visuales.",
+                  color: "#7c4bff",
+                  bg: "rgba(124,75,255,.12)",
+                  border: "rgba(124,75,255,.35)",
+                },
+                {
+                  tool: "mindmap" as const,
+                  emoji: "🧠",
+                  title: "Mapa mental",
+                  desc: "Tab para hijo, Enter para hermano. Construí un mapa estructurado en segundos con IA incluida.",
+                  color: "#10b981",
+                  bg: "rgba(16,185,129,.12)",
+                  border: "rgba(16,185,129,.35)",
+                },
+              ]).map(({ tool, emoji, title, desc, color, bg, border }) => (
+                <button key={tool} onClick={() => enterTool(tool)} style={{
+                  background: bg, border: `1.5px solid ${border}`,
+                  borderRadius: 20, padding: "32px 28px", textAlign: "left",
+                  cursor: "pointer", fontFamily: "inherit",
+                  transition: "transform .18s, box-shadow .18s",
+                }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-4px)"; (e.currentTarget as HTMLElement).style.boxShadow = `0 16px 48px ${bg}`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ""; (e.currentTarget as HTMLElement).style.boxShadow = ""; }}
+                >
+                  <div style={{ fontSize: 40, marginBottom: 16 }}>{emoji}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 8 }}>{title}</div>
+                  <div style={{ fontSize: 14, color: "rgba(255,255,255,.55)", lineHeight: 1.6, marginBottom: 20 }}>{desc}</div>
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    background: color, color: "#fff", borderRadius: 8,
+                    padding: "8px 18px", fontSize: 14, fontWeight: 700,
+                  }}>Probar {title} →</div>
+                </button>
+              ))}
+            </div>
+
+            <p style={{ marginTop: 32, fontSize: 13, color: "rgba(255,255,255,.3)", textAlign: "center" }}>
+              ¿Ya tenés cuenta?{" "}
+              <button onClick={() => { setGuestMode(false); setLoginMode("login"); setShowLogin(true); }}
+                style={{ background: "none", border: "none", color: "#c4b5fd", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, padding: 0 }}>
+                Iniciá sesión →
+              </button>
+            </p>
+          </div>
+        );
+      }
+
+      // ── Active tool ──────────────────────────────────────────────────────────
       return (
         <div style={{ position: "relative", width: "100%", height: "100vh" }}>
-          {/* Guest banner */}
+          {/* Banner */}
           <div style={{
             position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
             background: "linear-gradient(94deg, #4a0fcc, #6128ff)",
             color: "#fff", display: "flex", alignItems: "center",
-            justifyContent: "space-between", padding: "0 20px",
-            height: 42, fontSize: 13, fontFamily: "Assistant, sans-serif",
+            justifyContent: "space-between", padding: "0 16px",
+            height: 44, fontSize: 13, fontFamily: "Assistant, sans-serif",
             boxShadow: "0 2px 12px rgba(97,40,255,.35)",
           }}>
-            <span>
-              ✏️ <strong>Modo invitado</strong> · Tus cambios no se guardan en la nube
-            </span>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <button
-                onClick={() => setShowLogin(true)}
-                style={{
-                  background: "rgba(255,255,255,.15)", color: "#fff",
-                  border: "1px solid rgba(255,255,255,.35)",
-                  borderRadius: 6, padding: "4px 14px", fontSize: 13,
-                  cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
-                }}
-              >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button onClick={() => setGuestTool(null)} style={{
+                background: "rgba(255,255,255,.12)", border: "none", color: "rgba(255,255,255,.8)",
+                borderRadius: 6, padding: "3px 10px", fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+              }}>← Cambiar herramienta</button>
+              <span style={{ opacity: .6, fontSize: 12 }}>
+                {guestTool === "canvas" ? "🎨 Pizarra libre" : "🧠 Mapa mental"} · Modo invitado
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { setLoginMode("login"); setShowLogin(true); }}
+                style={{ background: "rgba(255,255,255,.15)", color: "#fff", border: "1px solid rgba(255,255,255,.35)", borderRadius: 6, padding: "4px 14px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
                 Iniciar sesión
               </button>
-              <button
-                onClick={() => setShowLogin(true)}
-                style={{
-                  background: "#fff", color: "#6128ff",
-                  border: "none", borderRadius: 6,
-                  padding: "4px 14px", fontSize: 13,
-                  cursor: "pointer", fontFamily: "inherit", fontWeight: 700,
-                }}
-              >
+              <button onClick={() => { setLoginMode("signup"); setShowLogin(true); }}
+                style={{ background: "#fff", color: "#6128ff", border: "none", borderRadius: 6, padding: "4px 14px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>
                 Crear cuenta gratis →
               </button>
-              <button
-                onClick={() => setGuestMode(false)}
-                style={{
-                  background: "transparent", color: "rgba(255,255,255,.6)",
-                  border: "none", cursor: "pointer", fontSize: 18,
-                  lineHeight: 1, padding: "0 4px", fontFamily: "inherit",
-                }}
-                title="Volver al inicio"
-              >
-                ×
-              </button>
+              <button onClick={exitGuest}
+                style={{ background: "transparent", color: "rgba(255,255,255,.5)", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 4px", fontFamily: "inherit" }}
+                title="Volver al inicio">×</button>
             </div>
           </div>
-          {/* Canvas below banner — exact remaining height */}
-          <div style={{ marginTop: 42, height: "calc(100vh - 42px)" }}>
-            <Provider store={appJotaiStore}>
-              <ExcalidrawAPIProvider>
-                <ExcalidrawWrapper
-                  drawingId="__guest__"
-                  onBackToDashboard={() => setGuestMode(false)}
-                  isGuest
-                />
-              </ExcalidrawAPIProvider>
-            </Provider>
+          <div style={{ marginTop: 44, height: "calc(100vh - 44px)" }}>
+            {guestTool === "canvas" ? (
+              <Provider store={appJotaiStore}>
+                <ExcalidrawAPIProvider>
+                  <ExcalidrawWrapper drawingId="__guest__" onBackToDashboard={exitGuest} isGuest />
+                </ExcalidrawAPIProvider>
+              </Provider>
+            ) : (
+              <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#888" }}>Cargando…</div>}>
+                <MindMapEditor drawingId="__guest_mindmap__" onBack={exitGuest} isGuest />
+              </Suspense>
+            )}
           </div>
         </div>
       );
@@ -2018,7 +2096,7 @@ const ExcalidrawAppInner = () => {
         onSignup={() => { setLoginMode("signup"); setShowLogin(true); }}
         onGuest={() => {
           setGuestMode(true);
-          trackGuestSessionStart().catch(() => {});
+          setGuestTool(null);
         }}
       />
     );
