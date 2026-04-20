@@ -118,7 +118,7 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-      sourcemap: true,
+      sourcemap: mode === "development",
       // don't auto-inline small assets (i.e. fonts hosted on CDN)
       assetsInlineLimit: 0,
     },
@@ -132,11 +132,11 @@ export default defineConfig(({ mode }) => {
       woff2BrowserPlugin(),
       react(),
       checker({
-        typescript: true,
+        typescript: mode === "development",
         eslint:
-          envVars.VITE_APP_ENABLE_ESLINT === "false"
-            ? undefined
-            : { lintCommand: 'eslint "./**/*.{js,ts,tsx}"' },
+          mode === "development" && envVars.VITE_APP_ENABLE_ESLINT !== "false"
+            ? { lintCommand: 'eslint "./**/*.{js,ts,tsx}"' }
+            : undefined,
         overlay: {
           initialIsOpen: envVars.VITE_APP_COLLAPSE_OVERLAY === "false",
           badgeStyle: "margin-bottom: 4rem; margin-left: 1rem",
