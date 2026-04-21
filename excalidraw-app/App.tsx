@@ -100,9 +100,7 @@ const Dashboard = lazy(() =>
 const MindMapEditor = lazy(() =>
   import("./components/MindMapEditor").then((m) => ({ default: m.MindMapEditor })),
 );
-const LandingPage = lazy(() =>
-  import("./components/LandingPage").then((m) => ({ default: m.LandingPage })),
-);
+import { LandingPage } from "./components/LandingPage";
 import { AdminPanel } from "./components/AdminPanel";
 import { OnboardingForm } from "./components/OnboardingForm";
 import { LoginScreen } from "./components/LoginScreen";
@@ -2225,16 +2223,14 @@ const ExcalidrawAppInner = () => {
       );
     }
     return (
-      <Suspense fallback={null}>
-        <LandingPage
-          onLogin={() => { setLoginMode("login"); setShowLogin(true); }}
-          onSignup={() => { setLoginMode("signup"); setShowLogin(true); }}
-          onGuest={() => {
-            setGuestMode(true);
-            setGuestTool(null);
-          }}
-        />
-      </Suspense>
+      <LandingPage
+        onLogin={() => { setLoginMode("login"); setShowLogin(true); }}
+        onSignup={() => { setLoginMode("signup"); setShowLogin(true); }}
+        onGuest={() => {
+          setGuestMode(true);
+          setGuestTool(null);
+        }}
+      />
     );
   }
 
