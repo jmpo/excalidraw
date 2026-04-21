@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { signUpWithEmail } from "../data/supabase";
+import { pixelLead, pixelRegistration, pixelInitCheckout } from "../data/metaPixel";
 
 interface Props {
   onLogin: () => void;
@@ -688,9 +689,12 @@ export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => 
     e.preventDefault();
     setFormError("");
     setFormLoading(true);
+    // Fire Lead when user hits submit (before result)
+    pixelLead(email);
     try {
       const { error } = await signUpWithEmail(email, password);
       if (error) throw error;
+      pixelRegistration(email);
       onLogin();
     } catch (err: any) {
       setFormError(err.message || "Ocurrió un error.");
@@ -1154,7 +1158,7 @@ export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => 
                 <li>Soporte prioritario</li>
               </ul>
               <button className="lp-btn lp-btn-primary" style={{ width: "100%", padding: 14 }}
-                onClick={() => { /* TODO: link to Stripe checkout */ window.location.href = "#registro"; }}>
+                onClick={() => { pixelInitCheckout(); window.open("https://pay.hotmart.com/E105478979P", "_blank"); }}>
                 Quiero el plan Pro →
               </button>
             </div>

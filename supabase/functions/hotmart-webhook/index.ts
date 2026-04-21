@@ -1,6 +1,37 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendEmail, emailLayout, btnPrimary, SITE_URL } from "../_shared/resend.ts";
 
+const PIXEL_ID   = Deno.env.get("META_PIXEL_ID")!;
+const CAPI_TOKEN = Deno.env.get("META_CAPI_TOKEN")!;
+
+async function sha256(value: string): Promise<string> {
+  const data = new TextEncoder().encode(value.trim().toLowerCase());
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function sendCapiEvent(email: string, eventName: string, customData?: Record<string, unknown>) {
+  try {
+    await fetch(`https://graph.facebook.com/v19.0/${PIXEL_ID}/events?access_token=${CAPI_TOKEN}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        data: [{
+          event_name: eventName,
+          event_time: Math.floor(Date.now() / 1000),
+          event_id: `hotmart-${Date.now()}`,
+          action_source: "website",
+          event_source_url: "https://edudraw.chatea.click",
+          user_data: { em: [await sha256(email)] },
+          custom_data: customData,
+        }],
+      }),
+    });
+  } catch (e) {
+    console.warn("CAPI error:", e);
+  }
+}
+
 const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -108,6 +139,9 @@ Deno.serve(async (req) => {
       });
     }
     console.log(`✅ Pro activated for ${buyerEmail}`);
+
+    // CAPI Purchase event
+    await sendCapiEvent(buyerEmail, "Purchase", { value: 64.9, currency: "USD" });
 
     // Send payment confirmation email
     await sendEmail(
