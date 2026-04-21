@@ -44,12 +44,12 @@ Deno.serve(async (req) => {
 
   const event = (body.event as string) ?? "";
   const data = body.data as Record<string, unknown> | undefined;
-  const buyer = data?.buyer as Record<string, unknown> | undefined;
+  // Purchase events use data.buyer; subscription events use data.subscriber
+  const buyer = (data?.buyer ?? data?.subscriber) as Record<string, unknown> | undefined;
   const purchase = data?.purchase as Record<string, unknown> | undefined;
 
   const buyerEmail = buyer?.email as string | undefined;
-  const transaction = purchase?.transaction as string | undefined;
-  // Hotmart also sends status inside purchase — treat as fallback
+  const transaction = (purchase?.transaction ?? purchase?.order_string) as string | undefined;
   const purchaseStatus = purchase?.status as string | undefined;
 
   console.log(`Hotmart event: ${event} | status: ${purchaseStatus} | email: ${buyerEmail}`);
