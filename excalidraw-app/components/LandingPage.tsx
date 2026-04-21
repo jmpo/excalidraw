@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { signUpWithEmail } from "../data/supabase";
-import { pixelLead, pixelRegistration, pixelInitCheckout } from "../data/metaPixel";
+import { pixelViewContent, pixelLead, pixelRegistration, pixelAddToCart } from "../data/metaPixel";
 
 interface Props {
   onLogin: () => void;
@@ -685,18 +685,40 @@ export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => 
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState("");
 
+  // Track if Lead event was already fired to avoid duplicates
+  const leadFiredRef = React.useRef(false);
+
+  // Form is ready when both fields have valid content
+  const formReady = email.trim().length > 3 && email.includes("@") && password.length >= 8;
+
+  // Fire ViewContent once on mount
+  React.useEffect(() => { pixelViewContent("Landing EduDraw"); }, []);
+
+  // Fire Lead once when form becomes ready (fields complete)
+  React.useEffect(() => {
+    if (formReady && !leadFiredRef.current) {
+      leadFiredRef.current = true;
+      pixelLead(email);
+    }
+  }, [formReady]);
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     setFormLoading(true);
-    // Fire Lead when user hits submit (before result)
-    pixelLead(email);
+    // If Lead wasn't fired yet (edge case), fire it now on submit attempt
+    if (!leadFiredRef.current) {
+      leadFiredRef.current = true;
+      pixelLead(email);
+    }
     try {
       const { error } = await signUpWithEmail(email, password);
       if (error) throw error;
       pixelRegistration(email);
       onLogin();
     } catch (err: any) {
+      // Error = attempted but failed → still a Lead signal, re-fire for the attempt
+      pixelLead(email);
       setFormError(err.message || "Ocurrió un error.");
       setFormLoading(false);
     }
@@ -1158,7 +1180,7 @@ export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => 
                 <li>Soporte prioritario</li>
               </ul>
               <button className="lp-btn lp-btn-primary" style={{ width: "100%", padding: 14 }}
-                onClick={() => { pixelInitCheckout(); window.open("https://pay.hotmart.com/E105478979P", "_blank"); }}>
+                onClick={() => { pixelAddToCart(); window.open("https://pay.hotmart.com/E105478979P", "_blank"); }}>
                 Quiero el plan Pro →
               </button>
             </div>
@@ -1228,8 +1250,8 @@ export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => 
 
               {formError && <div className="lp-signup-error">{formError}</div>}
 
-              <button type="submit" disabled={formLoading} className="lp-signup-submit">
-                {formLoading ? "Creando tu cuenta…" : "🚀 Crear mi cuenta gratis"}
+              <button type="submit" disabled={formLoading || !formReady} className="lp-signup-submit">
+                {formLoading ? "Creando tu cuenta…" : !formReady ? "Completá los datos para continuar" : "🚀 Crear mi cuenta gratis"}
               </button>
 
               <p style={{ fontSize: 12, color: "#999", textAlign: "center", marginTop: 14, lineHeight: 1.6 }}>

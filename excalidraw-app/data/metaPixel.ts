@@ -63,9 +63,10 @@ export const trackEvent = async (
 };
 
 // Convenience methods
-export const pixelPageView    = () => trackEvent("PageView");
-export const pixelLead        = (email?: string) => trackEvent("Lead", {}, { email });
-export const pixelRegistration = (email?: string) => trackEvent("CompleteRegistration", { status: true }, { email });
-export const pixelPurchase    = (value: number, currency = "USD") =>
-  trackEvent("Purchase", { value, currency });
-export const pixelInitCheckout = () => trackEvent("InitiateCheckout");
+export const pixelPageView      = () => trackEvent("PageView");
+export const pixelViewContent   = (contentName?: string) => trackEvent("ViewContent", { content_name: contentName ?? "Landing Page" });
+export const pixelLead          = (email?: string) => trackEvent("Lead", {}, { email });
+export const pixelRegistration  = (email?: string) => trackEvent("CompleteRegistration", { status: true }, { email });
+export const pixelAddToCart     = () => trackEvent("AddToCart", { content_name: "Plan Pro EduDraw", value: 64.9, currency: "USD" });
+export const pixelInitCheckout  = () => trackEvent("InitiateCheckout");
+export const pixelPurchase      = (value: number, currency = "USD") => trackEvent("Purchase", { value, currency });

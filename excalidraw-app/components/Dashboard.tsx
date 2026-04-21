@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { pixelAddToCart } from "../data/metaPixel";
 import {
   fetchDrawings,
   fetchFolders,
@@ -293,6 +294,7 @@ const UpgradeModal = ({
         href={getHotmartCheckoutUrl()}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => pixelAddToCart()}
         style={{
           display: "block",
           padding: "13px 32px",
