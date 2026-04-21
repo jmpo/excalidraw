@@ -104,6 +104,13 @@ export const fetchDrawing = async (id: string): Promise<Drawing> => {
   return data as Drawing;
 };
 
+export class DrawingLimitError extends Error {
+  constructor() {
+    super("DRAWING_LIMIT_REACHED");
+    this.name = "DrawingLimitError";
+  }
+}
+
 export const createDrawing = async (
   name: string,
   type: DrawingType = "canvas",
@@ -117,6 +124,7 @@ export const createDrawing = async (
     .select()
     .single();
   if (error) {
+    if (error.message?.includes("DRAWING_LIMIT_REACHED")) throw new DrawingLimitError();
     throw error;
   }
   return data as Drawing;
@@ -265,7 +273,7 @@ export const completeOnboarding = async (
 // Set VITE_HOTMART_PRO_URL in your .env to your product's checkout link.
 export const getHotmartCheckoutUrl = (): string => {
   const url = import.meta.env.VITE_HOTMART_PRO_URL as string | undefined;
-  return url ?? "https://pay.hotmart.com/XXXXXXXXX"; // replace with real URL
+  return url ?? "https://pay.hotmart.com/E105478979P";
 };
 
 // ── Admin: plan management ────────────────────────────────────────────────────

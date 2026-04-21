@@ -16,6 +16,7 @@ import {
   isTrialActive,
   trialDaysLeft,
   getHotmartCheckoutUrl,
+  DrawingLimitError,
 } from "../data/supabase";
 import { useAuth } from "../auth/AuthContext";
 import { TEMPLATES } from "../data/templates";
@@ -414,28 +415,29 @@ export const Dashboard = ({
       }
       onOpenDrawing(drawing.id);
     } catch (err: any) {
-      alert(
-        "Error al crear el mapa mental.\n\n" +
-        "Asegurate de haber aplicado la migración SQL en Supabase:\n" +
-        "ALTER TABLE public.drawings ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'canvas' CHECK (type IN ('canvas', 'mindmap'));\n\n" +
-        (err?.message ?? String(err)),
-      );
+      if (err instanceof DrawingLimitError) { setShowTypePicker(false); setShowUpgradeModal(true); return; }
+      alert("Error al crear el mapa mental.\n\n" + (err?.message ?? String(err)));
     }
   };
 
   const handleTemplateSelect = async (template: Template) => {
     setShowTemplatePicker(false);
-    const drawing = await createDrawing(
-      template.id === "blank" ? "Sin título" : template.name,
-      "canvas",
-    );
-    if (template.id !== "blank") {
-      await saveDrawing(drawing.id, template.content as any);
+    try {
+      const drawing = await createDrawing(
+        template.id === "blank" ? "Sin título" : template.name,
+        "canvas",
+      );
+      if (template.id !== "blank") {
+        await saveDrawing(drawing.id, template.content as any);
+      }
+      if (activeFolderId && activeFolderId !== "all") {
+        await moveDrawingToFolder(drawing.id, activeFolderId);
+      }
+      onOpenDrawing(drawing.id);
+    } catch (err: any) {
+      if (err instanceof DrawingLimitError) { setShowUpgradeModal(true); return; }
+      throw err;
     }
-    if (activeFolderId && activeFolderId !== "all") {
-      await moveDrawingToFolder(drawing.id, activeFolderId);
-    }
-    onOpenDrawing(drawing.id);
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
