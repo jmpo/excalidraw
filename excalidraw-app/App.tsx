@@ -2057,7 +2057,7 @@ const ExcalidrawAppInner = () => {
         setGuestTool(tool);
         trackGuestSessionStart(tool).catch(() => {});
       };
-      const exitGuest = () => { setGuestMode(false); setGuestTool(null); };
+      const exitGuest = () => { window.location.href = "https://edudraw.chatea.click"; };
 
       // ── Tool picker ──────────────────────────────────────────────────────────
       if (!guestTool) {
