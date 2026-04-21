@@ -94,14 +94,18 @@ import {
 } from "./data/supabase";
 import type { DrawingType, Profile } from "./data/supabase";
 import { trackGuestSessionStart, trackGuestActivity, trackGuestToolSwitch } from "./data/guestTracking";
-import { Dashboard } from "./components/Dashboard";
+const Dashboard = lazy(() =>
+  import("./components/Dashboard").then((m) => ({ default: m.Dashboard })),
+);
 const MindMapEditor = lazy(() =>
   import("./components/MindMapEditor").then((m) => ({ default: m.MindMapEditor })),
+);
+const LandingPage = lazy(() =>
+  import("./components/LandingPage").then((m) => ({ default: m.LandingPage })),
 );
 import { AdminPanel } from "./components/AdminPanel";
 import { OnboardingForm } from "./components/OnboardingForm";
 import { LoginScreen } from "./components/LoginScreen";
-import { LandingPage } from "./components/LandingPage";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { useEduLibrary } from "./data/useEduLibrary";
 import { LibrarySidebar } from "./components/LibrarySidebar";
@@ -2221,14 +2225,16 @@ const ExcalidrawAppInner = () => {
       );
     }
     return (
-      <LandingPage
-        onLogin={() => { setLoginMode("login"); setShowLogin(true); }}
-        onSignup={() => { setLoginMode("signup"); setShowLogin(true); }}
-        onGuest={() => {
-          setGuestMode(true);
-          setGuestTool(null);
-        }}
-      />
+      <Suspense fallback={null}>
+        <LandingPage
+          onLogin={() => { setLoginMode("login"); setShowLogin(true); }}
+          onSignup={() => { setLoginMode("signup"); setShowLogin(true); }}
+          onGuest={() => {
+            setGuestMode(true);
+            setGuestTool(null);
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -2269,22 +2275,24 @@ const ExcalidrawAppInner = () => {
 
   if (view === "dashboard") {
     return (
-      <Dashboard
-        onOpenDrawing={async (id) => {
-          navigate(`/?d=${id}`);
-          setCurrentDrawingId(id);
-          const d = await fetchDrawing(id).catch(() => null);
-          setCurrentDrawingType(d?.type ?? "canvas");
-          setView("canvas");
-        }}
-        profile={profile}
-        onProfileChange={setProfile}
-        onOpenAdmin={
-          session?.user?.email === "pompa.07@gmail.com"
-            ? () => { navigate("/?admin"); setView("admin"); }
-            : undefined
-        }
-      />
+      <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#6965db", fontSize: 16 }}>Cargando…</div>}>
+        <Dashboard
+          onOpenDrawing={async (id) => {
+            navigate(`/?d=${id}`);
+            setCurrentDrawingId(id);
+            const d = await fetchDrawing(id).catch(() => null);
+            setCurrentDrawingType(d?.type ?? "canvas");
+            setView("canvas");
+          }}
+          profile={profile}
+          onProfileChange={setProfile}
+          onOpenAdmin={
+            session?.user?.email === "pompa.07@gmail.com"
+              ? () => { navigate("/?admin"); setView("admin"); }
+              : undefined
+          }
+        />
+      </Suspense>
     );
   }
 

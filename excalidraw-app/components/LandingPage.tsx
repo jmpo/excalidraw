@@ -217,6 +217,7 @@ const css = `
     background:linear-gradient(135deg,#0d0025 0%,#1a0050 50%,#0d0025 100%);
     background-size:200% 200%;
     animation:gradShift 8s ease infinite;
+    will-change: background-position;
     color:#fff; padding:56px 52px;
     display:flex; align-items:center; justify-content:center; gap:0; flex-wrap:wrap;
   }
@@ -341,7 +342,7 @@ const css = `
     font-size:22px; font-weight:800; margin:0 auto 20px;
     box-shadow:0 8px 28px rgba(97,40,255,.5);
     font-family:"Excalifont",cursive; position:relative; z-index:1;
-    animation:pulse 3s ease infinite;
+    animation:pulse 3s ease infinite; will-change: box-shadow;
   }
   .lp-step:nth-child(2) .lp-step-n { animation-delay:.8s; }
   .lp-step:nth-child(3) .lp-step-n { animation-delay:1.6s; }
@@ -439,6 +440,7 @@ const css = `
   .lp-cta {
     background:linear-gradient(135deg,#2d0a8e 0%,#6128ff 50%,#8b5cf6 100%);
     background-size:200% 200%; animation:gradShift 6s ease infinite;
+    will-change: background-position;
     color:#fff; text-align:center; padding:112px 48px; position:relative; overflow:hidden;
   }
   .lp-cta::before {
@@ -634,9 +636,19 @@ const css = `
   .lp-signup-toggle button { background:none; border:none; color:#6128ff; font-weight:700; cursor:pointer; font-family:inherit; font-size:13px; padding:0; }
   .lp-signup-trust { display:flex; align-items:center; justify-content:center; gap:20px; margin-top:24px; flex-wrap:wrap; }
   .lp-signup-trust span { font-size:12px; color:rgba(255,255,255,.55); display:flex; align-items:center; gap:5px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lp-fadein, .lp-fadein-2, .lp-fadein-3, .lp-fadein-4 { animation: none !important; }
+    .lp-value-strip, .lp-cta, .lp-steps-grid::before { animation: none !important; background-position: 0% 50% !important; }
+    .lp-step-n { animation: none !important; }
+    .lp-hero-preview { animation: none !important; }
+  }
 `;
 
 // ── Hero screenshot preview ────────────────────────────────────────────────────
+
+const cdnOpt = (url: string, w = 1200) =>
+  url.replace("/upload/", `/upload/f_auto,q_auto,w_${w}/`);
 
 const SCREENSHOT_WHITEBOARD = "https://res.cloudinary.com/dkny2qqeu/image/upload/v1776703746/hf_20260420_162838_d64ad83e-86f0-4746-8730-aed1620dce67_qkks1j.png";
 const SCREENSHOT_MINDMAP    = "https://res.cloudinary.com/dkny2qqeu/image/upload/v1776703745/hf_20260420_164353_f88124b6-426d-4a34-b40c-794f75ad269d_udlq3f.png";
@@ -651,7 +663,15 @@ const BrowserFrame = ({ url, src, alt, eager }: { url: string; src: string; alt:
       </div>
       <div className="lp-hero-preview-url">{url}</div>
     </div>
-    <img src={src} alt={alt} loading={eager ? "eager" : "lazy"} />
+    <img
+      src={cdnOpt(src)}
+      alt={alt}
+      width={580}
+      height={340}
+      loading={eager ? "eager" : "lazy"}
+      decoding={eager ? "sync" : "async"}
+      {...(eager ? { fetchPriority: "high" } : {})}
+    />
   </div>
 );
 
