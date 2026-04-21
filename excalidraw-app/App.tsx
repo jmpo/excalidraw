@@ -1888,6 +1888,15 @@ const ExcalidrawAppInner = () => {
       .catch(() => {});
   }, []);
 
+  // Handle ?guest=1 — enter guest/demo mode without auth
+  useEffect(() => {
+    const params = getUrlParams();
+    if (params.has("guest")) {
+      setGuestMode(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
   // Listen to signup/login event dispatched from the guest WelcomeScreen
   useEffect(() => {
     const handler = () => setGuestMode(false);
