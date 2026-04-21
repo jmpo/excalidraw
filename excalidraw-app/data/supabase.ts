@@ -151,6 +151,13 @@ export const saveDrawing = async (
   }
 };
 
+export const touchDrawing = async (id: string) => {
+  await supabase
+    .from("drawings")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", id);
+};
+
 export const renameDrawing = async (id: string, name: string) => {
   const { error } = await supabase
     .from("drawings")

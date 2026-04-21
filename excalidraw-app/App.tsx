@@ -86,6 +86,7 @@ import {
   createDrawing,
   saveDrawing,
   saveThumbnail,
+  touchDrawing,
   signOut,
   generateShareLink,
   fetchSharedDrawing,
@@ -1994,17 +1995,9 @@ const ExcalidrawAppInner = () => {
 
     setInitializing(true);
     fetchDrawings()
-      .then(async (drawings) => {
-        if (drawings.length === 0) {
-          // New user — let Dashboard handle the first drawing creation
-          navigate("/?dashboard");
-          setView("dashboard");
-          return;
-        }
-        const first = drawings[0];
-        navigate(`/?d=${first.id}`);
-        setCurrentDrawingId(first.id);
-        setCurrentDrawingType(first.type ?? "canvas");
+      .then(async () => {
+        navigate("/?dashboard");
+        setView("dashboard");
       })
       .catch(async (err) => {
         console.error("fetchDrawings error:", err);
@@ -2257,6 +2250,7 @@ const ExcalidrawAppInner = () => {
             const d = await fetchDrawing(id).catch(() => null);
             setCurrentDrawingType(d?.type ?? "canvas");
             setView("canvas");
+            touchDrawing(id).catch(() => {});
           }}
           profile={profile}
           onProfileChange={setProfile}
