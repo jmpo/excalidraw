@@ -1,6 +1,5 @@
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
-// Update FROM_EMAIL once you verify your domain in Resend dashboard
-const FROM_EMAIL = "EduDraw <onboarding@resend.dev>";
+const FROM_EMAIL = "EduDraw <hola@edudraw.chatea.click>";
 const SITE_URL = "https://edudraw.chatea.click";
 
 Deno.serve(async (req) => {
