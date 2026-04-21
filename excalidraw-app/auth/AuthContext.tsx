@@ -26,13 +26,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   useEffect(() => {
-    // onAuthStateChange fires INITIAL_SESSION immediately from localStorage — no need for getSession()
-    // Adding a 5s fallback timeout so mobile with poor connectivity never hangs on "Cargando..."
+    const hash = window.location.hash;
+    const hasHashTokens = hash.includes("access_token");
+
+    // If URL contains auth tokens (email confirmation / magic link), call setSession
+    // so Supabase stores them before onAuthStateChange fires INITIAL_SESSION.
+    if (hasHashTokens) {
+      const params = new URLSearchParams(hash.slice(1));
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+      if (access_token && refresh_token) {
+        supabase.auth.setSession({ access_token, refresh_token }).then(() => {
+          window.history.replaceState(null, "", window.location.pathname);
+        });
+      }
+    }
+
     const timeout = setTimeout(() => setLoading(false), 5000);
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      // When hash tokens are being processed, ignore the initial null INITIAL_SESSION
+      // to avoid redirecting to login before the SIGNED_IN event arrives.
+      if (hasHashTokens && event === "INITIAL_SESSION" && !session) {
+        return;
+      }
       setSession(session);
       setLoading(false);
       clearTimeout(timeout);
