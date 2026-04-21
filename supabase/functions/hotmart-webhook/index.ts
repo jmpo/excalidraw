@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { sendEmail, emailLayout, btnPrimary, SITE_URL } from "../_shared/resend.ts";
 
 const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -107,6 +108,29 @@ Deno.serve(async (req) => {
       });
     }
     console.log(`✅ Pro activated for ${buyerEmail}`);
+
+    // Send payment confirmation email
+    await sendEmail(
+      buyerEmail,
+      "¡Tu acceso Pro a EduDraw está activo! ⭐",
+      emailLayout(`
+        <h1 style="margin:0 0 12px;font-size:21px;font-weight:800;color:#1a1a2e;">¡Bienvenido/a al plan Pro! 🎉</h1>
+        <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.6;">
+          Tu pago fue procesado exitosamente. Ya tenés acceso completo y permanente a todas las funciones de EduDraw.
+        </p>
+        ${btnPrimary(SITE_URL, "Ir a mis dibujos →")}
+        <table cellpadding="0" cellspacing="0" width="100%" style="background:#f0fdf4;border-radius:10px;border-left:4px solid #22c55e;padding:16px 22px;margin-bottom:20px;">
+          <tr><td>
+            <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.8px;">Tu plan Pro incluye</p>
+            <p style="margin:0 0 6px;font-size:14px;color:#166534;">✅ &nbsp;Dibujos y mapas mentales ilimitados</p>
+            <p style="margin:0 0 6px;font-size:14px;color:#166534;">✅ &nbsp;Asistente de IA incluido</p>
+            <p style="margin:0 0 6px;font-size:14px;color:#166534;">✅ &nbsp;Exportación HD</p>
+            <p style="margin:0;font-size:14px;color:#166534;">✅ &nbsp;Acceso permanente sin preocupaciones</p>
+          </td></tr>
+        </table>
+        <p style="margin:0;font-size:13px;color:#aaa;">¿Tenés alguna pregunta? Respondé este email y te ayudamos.</p>
+      `),
+    );
   }
 
   if (PAUSED_EVENTS.has(effectiveEvent)) {
