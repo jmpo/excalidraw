@@ -244,8 +244,23 @@ export const MindMapEditor = ({
   const [pdfPageCount, setPdfPageCount] = useState<number>(0);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  const GUEST_MINDMAP_KEY = "edudraw_guest_mindmap";
+
   const scheduleSave = (themeIdx?: number) => {
-    if (!meRef.current || isGuest) return;
+    if (!meRef.current) return;
+    if (isGuest) {
+      // Persist guest mindmap in localStorage so returning visitors keep their work
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        const data = meRef.current!.getData();
+        localStorage.setItem(GUEST_MINDMAP_KEY, JSON.stringify({
+          mindElixir: data,
+          themeIdx: themeIdx ?? activeThemeRef.current,
+          layoutIdx: activeLayoutRef.current,
+        }));
+      }, 1500);
+      return;
+    }
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       const data = meRef.current!.getData();
@@ -286,8 +301,31 @@ export const MindMapEditor = ({
     });
 
     if (isGuest) {
-      me.init(MindElixir.new("Mi idea central"));
-      setShowTemplates(true);
+      const saved = localStorage.getItem(GUEST_MINDMAP_KEY);
+      if (saved) {
+        try {
+          const content = JSON.parse(saved);
+          me.init(content.mindElixir ?? MindElixir.new("Mi idea central"));
+          const savedIdx = content.themeIdx ?? 0;
+          if (savedIdx !== 0) {
+            setActiveTheme(savedIdx);
+            activeThemeRef.current = savedIdx;
+            me.changeTheme(THEMES[savedIdx], true);
+          }
+          const savedLayout = content.layoutIdx ?? 0;
+          if (savedLayout !== 0) {
+            setActiveLayout(savedLayout);
+            const layoutMethods = [(me as any).initSide, (me as any).initRight, (me as any).initLeft];
+            layoutMethods[savedLayout]?.call(me);
+          }
+        } catch {
+          me.init(MindElixir.new("Mi idea central"));
+          setShowTemplates(true);
+        }
+      } else {
+        me.init(MindElixir.new("Mi idea central"));
+        setShowTemplates(true);
+      }
       setLoaded(true);
     } else {
       fetchDrawing(drawingId).then((d) => {
