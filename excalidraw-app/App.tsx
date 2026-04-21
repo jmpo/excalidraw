@@ -1871,8 +1871,13 @@ const ExcalidrawAppInner = () => {
   const [view, setView] = useState<"canvas" | "dashboard" | "admin">("canvas");
   const [initializing, setInitializing] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
-  const [showLogin, setShowLogin] = useState(false);
-  const [loginMode, setLoginMode] = useState<"login" | "signup">("login");
+  const [showLogin, setShowLogin] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.has("login") || p.has("signup");
+  });
+  const [loginMode, setLoginMode] = useState<"login" | "signup">(() => {
+    return new URLSearchParams(window.location.search).has("signup") ? "signup" : "login";
+  });
   const [guestMode, setGuestMode] = useState(false);
   const [guestTool, setGuestTool] = useState<"canvas" | "mindmap" | null>(null);
   const [sharedDrawingId, setSharedDrawingId] = useState<string | null>(null);
@@ -1926,10 +1931,17 @@ const ExcalidrawAppInner = () => {
     };
   }, [session]);
 
-  // Browser back/forward support
+  // Sync URL → state on browser back/forward
   useEffect(() => {
     const handler = () => {
       const params = getUrlParams();
+      // No-session routes
+      if (params.has("login")) { setShowLogin(true); setLoginMode("login"); return; }
+      if (params.has("signup")) { setShowLogin(true); setLoginMode("signup"); return; }
+      if (!params.has("d") && !params.has("admin") && !params.has("dashboard")) {
+        setShowLogin(false); return; // back to landing
+      }
+      // Session routes
       const drawingId = params.get("d");
       const isAdmin = params.has("admin");
       if (isAdmin) { setView("admin"); return; }
@@ -1940,6 +1952,20 @@ const ExcalidrawAppInner = () => {
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
   }, []);
+
+  // Sync state → URL for login/signup views
+  useEffect(() => {
+    if (session) return; // only when not logged in
+    if (showLogin) {
+      navigate(loginMode === "signup" ? "/?signup" : "/?login");
+    } else if (!guestMode) {
+      // Only clear to landing if we're not navigating to a session route
+      const params = getUrlParams();
+      if (params.has("login") || params.has("signup")) {
+        navigate("/");
+      }
+    }
+  }, [showLogin, loginMode, session, guestMode]);
 
   // Auto-load or create drawing when session is ready
   useEffect(() => {
