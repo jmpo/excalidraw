@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="utf-8" />
     <title>EduDraw — Pizarra y Mapas Mentales con IA</title>
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="referrer" content="origin" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -14,26 +14,25 @@
     <!-- Primary Meta Tags -->
     <meta name="title" content="EduDraw — Pizarra y Mapas Mentales con IA" />
     <meta name="description" content="EduDraw es tu herramienta de pizarra colaborativa y mapas mentales con IA. Transforma ideas en clases claras y visuales en minutos." />
-    <meta name="image" content="https://edudraw.app/og-image.png" />
+    <meta name="image" content="https://edudraw.chatea.click/og-image.png" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:site_name" content="EduDraw" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://edudraw.app" />
+    <meta property="og:url" content="https://edudraw.chatea.click" />
     <meta property="og:title" content="EduDraw — Pizarra y Mapas Mentales con IA" />
-    <meta property="og:image:alt" content="EduDraw logo" />
+    <meta property="og:image:alt" content="EduDraw — Pizarra y Mapas Mentales con IA" />
     <meta property="og:description" content="EduDraw es tu herramienta de pizarra colaborativa y mapas mentales con IA. Transforma ideas en clases claras y visuales en minutos." />
-    <meta property="og:image" content="https://edudraw.app/og-image.png" />
+    <meta property="og:image" content="https://edudraw.chatea.click/og-image.png" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:site" content="@edudraw" />
-    <meta property="twitter:url" content="https://edudraw.app" />
+    <meta property="twitter:url" content="https://edudraw.chatea.click" />
     <meta property="twitter:title" content="EduDraw — Pizarra y Mapas Mentales con IA" />
     <meta property="twitter:description" content="EduDraw es tu herramienta de pizarra colaborativa y mapas mentales con IA." />
-    <meta property="twitter:image" content="https://edudraw.app/og-image.png" />
+    <meta property="twitter:image" content="https://edudraw.chatea.click/og-image.png" />
 
-    <link rel="canonical" href="https://edudraw.app" />
+    <link rel="canonical" href="https://edudraw.chatea.click" />
 
     <!------------------------------------------------------------------------->
     <!--   to minimize white flash on load when user has dark mode enabled   -->
@@ -71,20 +70,25 @@
       }
     </style>
 
-    <!-- Meta Pixel -->
+    <!-- Meta Pixel — queue setup only (non-blocking); script loads after idle -->
     <script>
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      !function(f){if(f.fbq)return;var n=f.fbq=function(){n.callMethod?
       n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window,document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-      fbq('init','1317317330261362');
-      fbq('track','PageView');
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];}(window);
+      (window.requestIdleCallback||function(c){setTimeout(c,1)})(function(){
+        var t=document.createElement('script');t.async=!0;
+        t.src='https://connect.facebook.net/en_US/fbevents.js';
+        document.head.appendChild(t);
+        fbq('init','1317317330261362');
+        fbq('track','PageView');
+      });
     </script>
     <!-- End Meta Pixel -->
+
+    <!-- Preload landing page fonts so browser fetches them before React injects CSS -->
+    <link rel="preload" href="/fonts/Assistant-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Assistant-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/excalifont.woff2" as="font" type="font/woff2" crossorigin />
 
     <!-- DNS prefetch for external services -->
     <link rel="dns-prefetch" href="https://budelidqeceqphdqelfc.supabase.co" />
@@ -209,7 +213,7 @@
       src="https://www.facebook.com/tr?id=1317317330261362&ev=PageView&noscript=1"/></noscript>
     <noscript> You need to enable JavaScript to run this app. </noscript>
     <header>
-      <h1 class="visually-hidden">Excalidraw</h1>
+      <h1 class="visually-hidden">EduDraw — Pizarra y Mapas Mentales con IA</h1>
     </header>
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
