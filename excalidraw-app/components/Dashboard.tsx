@@ -1072,6 +1072,15 @@ export const Dashboard = ({
                     <div className="dashboard-card-actions">
                       <button title="Mover a carpeta" onClick={(e) => { e.stopPropagation(); setMovingDrawingId(drawing.id); }}>📂</button>
                       <button title="Renombrar" onClick={(e) => startRename(drawing, e)}>✏️</button>
+                      {drawing.thumbnail && (
+                        <button title="Descargar PNG" onClick={(e) => {
+                          e.stopPropagation();
+                          const a = document.createElement("a");
+                          a.href = drawing.thumbnail!;
+                          a.download = `${drawing.name}.png`;
+                          a.click();
+                        }}>⬇️</button>
+                      )}
                       <button title="Eliminar" onClick={(e) => handleDelete(drawing.id, e)}>🗑️</button>
                     </div>
                   )}

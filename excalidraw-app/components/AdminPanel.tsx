@@ -19,9 +19,10 @@ const PlanBadge = ({ profile }: { profile: AdminProfile }) => {
   const trial = isTrialActive(profile);
   const days = trialDaysLeft(profile);
   const colors: Record<string, { bg: string; color: string }> = {
-    pro: { bg: "#d1fae5", color: "#065f46" },
-    trial: { bg: "#fef3c7", color: "#92400e" },
-    free: { bg: "#f3f4f6", color: "#6b7280" },
+    pro:    { bg: "#d1fae5", color: "#065f46" },
+    trial:  { bg: "#fef3c7", color: "#92400e" },
+    free:   { bg: "#f3f4f6", color: "#6b7280" },
+    paused: { bg: "#fee2e2", color: "#991b1b" },
   };
   const c = colors[effective] ?? colors.free;
   return (
@@ -159,6 +160,8 @@ const UserDetailModal = ({
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+const PRO_PRICE = 64.9; // USD — update if price changes
+
 type Stats = {
   totalUsers: number;
   newUsersWeek: number;
@@ -169,6 +172,7 @@ type Stats = {
   totalDrawings: number;
   avgDrawingsPerUser: number;
   avgGuestElements: number;
+  planCounts: Record<string, number>;
 };
 
 type RecentUser = {
@@ -305,6 +309,7 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
   const [activeGuests, setActiveGuests] = useState<GuestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"overview" | "users" | "guests">("overview");
+  const [planFilter, setPlanFilter] = useState<string>("all");
   const [selectedUser, setSelectedUser] = useState<AdminProfile | null>(null);
 
   useEffect(() => {
@@ -349,6 +354,12 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
           ? Math.round(elCounts.reduce((a: number, b: number) => a + b, 0) / elCounts.length)
           : 0;
 
+        const planCounts: Record<string, number> = { free: 0, trial: 0, pro: 0, paused: 0 };
+        profiles.forEach((p) => {
+          const ep = getEffectivePlan(p);
+          planCounts[ep] = (planCounts[ep] || 0) + 1;
+        });
+
         setStats({
           totalUsers: totalUsers ?? 0,
           newUsersWeek: newUsersWeek ?? 0,
@@ -359,6 +370,7 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
           totalDrawings: totalDrawings ?? 0,
           avgDrawingsPerUser: avgDrawings,
           avgGuestElements: avgElements,
+          planCounts,
         });
         setAllProfiles(profiles);
         setActiveGuests(guestsData || []);
@@ -541,6 +553,31 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
                     sub="guests → registrados"
                     color="#ef4444"
                   />
+                  <StatCard
+                    icon="💰"
+                    label="MRR estimado"
+                    value={`$${(stats.planCounts.pro * PRO_PRICE).toFixed(0)}`}
+                    sub={`${stats.planCounts.pro} usuarios Pro`}
+                    color="#059669"
+                  />
+                </div>
+
+                {/* Plan breakdown */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 28 }}>
+                  {[
+                    { plan: "free",   label: "Free",   icon: "🆓", bg: "#f3f4f6", color: "#6b7280" },
+                    { plan: "trial",  label: "Trial",  icon: "🚀", bg: "#fef3c7", color: "#92400e" },
+                    { plan: "pro",    label: "Pro",    icon: "⭐", bg: "#d1fae5", color: "#065f46" },
+                    { plan: "paused", label: "Paused", icon: "⏸", bg: "#fee2e2", color: "#991b1b" },
+                  ].map(({ plan, label, icon, bg, color }) => (
+                    <div key={plan} style={{ background: bg, borderRadius: 12, padding: "16px 20px", cursor: "pointer" }}
+                      onClick={() => { setPlanFilter(plan); setTab("users"); }}>
+                      <div style={{ fontSize: 20, marginBottom: 6 }}>{icon}</div>
+                      <div style={{ fontSize: 26, fontWeight: 800, color }}>{stats.planCounts[plan] ?? 0}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color, marginTop: 2 }}>{label}</div>
+                      <div style={{ fontSize: 11, color, opacity: 0.7, marginTop: 2 }}>ver usuarios →</div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Two column: funnel + activity */}
@@ -724,25 +761,29 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
 
             {/* ── Users tab ── */}
             {tab === "users" && (
-              <div
-                style={{
-                  background: "#fff",
-                  borderRadius: 14,
-                  padding: "24px 28px",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: 700,
-                    fontSize: 16,
-                    marginBottom: 20,
-                    color: "#1a1a2e",
-                  }}
-                >
-                  Usuarios registrados ({allProfiles.length})
+              <div style={{ background: "#fff", borderRadius: 14, padding: "24px 28px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: "#1a1a2e" }}>
+                    Usuarios registrados ({allProfiles.length})
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {(["all", "free", "trial", "pro", "paused"] as const).map((f) => (
+                      <button key={f} onClick={() => setPlanFilter(f)}
+                        style={{ padding: "5px 12px", borderRadius: 7, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                          background: planFilter === f ? "#6128ff" : "#f0eeff",
+                          color: planFilter === f ? "#fff" : "#6128ff" }}>
+                        {f === "all" ? "Todos" : f.charAt(0).toUpperCase() + f.slice(1)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <UserTable onSelect={setSelectedUser} users={allProfiles} />
+                <UserTable
+                  onSelect={setSelectedUser}
+                  users={planFilter === "all" ? allProfiles : allProfiles.filter((u) => {
+                    const ep = getEffectivePlan(u);
+                    return planFilter === "paused" ? u.plan === "paused" : ep === planFilter;
+                  })}
+                />
               </div>
             )}
 
