@@ -26,21 +26,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
+    // onAuthStateChange fires INITIAL_SESSION immediately from localStorage — no need for getSession()
+    // Adding a 5s fallback timeout so mobile with poor connectivity never hangs on "Cargando..."
+    const timeout = setTimeout(() => setLoading(false), 5000);
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      setLoading(false);
+      clearTimeout(timeout);
       if (event === "PASSWORD_RECOVERY") {
         setPasswordRecovery(true);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   return (
