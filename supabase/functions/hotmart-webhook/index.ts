@@ -5,18 +5,29 @@ const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-// Hotmart sends a hottok query param to verify the request origin.
-// Set HOTMART_HOTTOK in Supabase Edge Function secrets to match the value
-// configured in Hotmart Dashboard → Tools → Webhooks (Postback).
 const EXPECTED_HOTTOK = Deno.env.get("HOTMART_HOTTOK");
 
+// Events that mean the user paid successfully
+const PAID_EVENTS = new Set([
+  "PURCHASE_COMPLETE",
+  "PURCHASE_APPROVED",
+  "SUBSCRIPTION_REACTIVATED",
+]);
+
+// Events that mean the user is no longer paying
+const PAUSED_EVENTS = new Set([
+  "PURCHASE_CANCELED",
+  "PURCHASE_REFUNDED",
+  "PURCHASE_CHARGEBACK",
+  "SUBSCRIPTION_CANCELLATION",
+]);
+
 Deno.serve(async (req) => {
-  // Hotmart sends POST with JSON body
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  // Verify hottok if configured
+  // Verify hottok (passed as query param by Hotmart)
   const url = new URL(req.url);
   const hottok = url.searchParams.get("hottok");
   if (EXPECTED_HOTTOK && hottok !== EXPECTED_HOTTOK) {
@@ -31,50 +42,54 @@ Deno.serve(async (req) => {
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  // Hotmart postback structure: { event, data: { buyer: { email }, purchase: { status, transaction } } }
   const event = (body.event as string) ?? "";
   const data = body.data as Record<string, unknown> | undefined;
   const buyer = data?.buyer as Record<string, unknown> | undefined;
   const purchase = data?.purchase as Record<string, unknown> | undefined;
 
   const buyerEmail = buyer?.email as string | undefined;
-  const purchaseStatus = purchase?.status as string | undefined;
   const transaction = purchase?.transaction as string | undefined;
+  // Hotmart also sends status inside purchase — treat as fallback
+  const purchaseStatus = purchase?.status as string | undefined;
 
-  console.log(`Hotmart event: ${event} | email: ${buyerEmail} | status: ${purchaseStatus}`);
+  console.log(`Hotmart event: ${event} | status: ${purchaseStatus} | email: ${buyerEmail}`);
 
   if (!buyerEmail) {
-    return new Response(JSON.stringify({ ok: false, reason: "no buyer email" }), {
-      status: 200, // return 200 so Hotmart doesn't retry
-      headers: { "Content-Type": "application/json" },
-    });
+    return ok({ reason: "no buyer email" });
   }
 
-  // Find user by email
+  // Resolve effective event (prefer explicit event name, fallback to status field)
+  const effectiveEvent =
+    event ||
+    (purchaseStatus === "COMPLETE" || purchaseStatus === "APPROVED"
+      ? "PURCHASE_COMPLETE"
+      : purchaseStatus === "REFUNDED"
+      ? "PURCHASE_REFUNDED"
+      : purchaseStatus === "CANCELED"
+      ? "PURCHASE_CANCELED"
+      : "");
+
+  if (!PAID_EVENTS.has(effectiveEvent) && !PAUSED_EVENTS.has(effectiveEvent)) {
+    console.log(`Ignored event: ${effectiveEvent}`);
+    return ok({ reason: "event ignored" });
+  }
+
+  // Find profile by email
   const { data: profiles, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("id, plan")
-    .eq("email", buyerEmail);
+    .eq("email", buyerEmail)
+    .limit(1);
 
   if (profileError || !profiles || profiles.length === 0) {
-    // User hasn't registered yet — log and return OK so Hotmart doesn't keep retrying.
-    // They'll be activated once they register (you can handle this manually via admin panel).
-    console.warn(`No profile found for email: ${buyerEmail}`);
-    return new Response(JSON.stringify({ ok: false, reason: "user not found" }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    // User hasn't registered yet — store pending activation so we can handle via admin
+    console.warn(`No profile for email: ${buyerEmail} — event: ${effectiveEvent}`);
+    return ok({ reason: "user not found" });
   }
 
-  const userId = profiles[0].id;
+  const userId = profiles[0].id as string;
 
-  // PURCHASE_COMPLETE or PURCHASE_APPROVED → activate Pro
-  if (
-    event === "PURCHASE_COMPLETE" ||
-    event === "PURCHASE_APPROVED" ||
-    purchaseStatus === "COMPLETE" ||
-    purchaseStatus === "APPROVED"
-  ) {
+  if (PAID_EVENTS.has(effectiveEvent)) {
     const { error } = await supabaseAdmin
       .from("profiles")
       .update({
@@ -91,28 +106,34 @@ Deno.serve(async (req) => {
         headers: { "Content-Type": "application/json" },
       });
     }
-
-    console.log(`Activated Pro for ${buyerEmail} (${userId})`);
+    console.log(`✅ Pro activated for ${buyerEmail}`);
   }
 
-  // PURCHASE_REFUNDED / PURCHASE_CANCELED / SUBSCRIPTION_CANCELLATION → downgrade
-  if (
-    event === "PURCHASE_REFUNDED" ||
-    event === "PURCHASE_CANCELED" ||
-    event === "SUBSCRIPTION_CANCELLATION" ||
-    purchaseStatus === "REFUNDED" ||
-    purchaseStatus === "CANCELED"
-  ) {
-    await supabaseAdmin
+  if (PAUSED_EVENTS.has(effectiveEvent)) {
+    const { error } = await supabaseAdmin
       .from("profiles")
-      .update({ plan: "free", trial_ends_at: null, hotmart_transaction: null })
+      .update({
+        plan: "paused",
+        hotmart_transaction: transaction ?? null,
+      })
       .eq("id", userId);
 
-    console.log(`Downgraded ${buyerEmail} to free`);
+    if (error) {
+      console.error("Failed to pause account:", error.message);
+      return new Response(JSON.stringify({ ok: false, error: error.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    console.log(`⏸ Account paused for ${buyerEmail}`);
   }
 
-  return new Response(JSON.stringify({ ok: true }), {
+  return ok({ event: effectiveEvent, email: buyerEmail });
+});
+
+function ok(data: Record<string, unknown>) {
+  return new Response(JSON.stringify({ ok: true, ...data }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
-});
+}

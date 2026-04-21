@@ -7,7 +7,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ── Plan types ────────────────────────────────────────────────────────────────
 
-export type Plan = "free" | "trial" | "pro";
+export type Plan = "free" | "trial" | "pro" | "paused";
 
 export type Profile = {
   id: string;
@@ -28,6 +28,9 @@ export const getEffectivePlan = (profile: Pick<Profile, "plan" | "trial_ends_at"
   }
   return profile.plan;
 };
+
+export const isPaused = (profile: Pick<Profile, "plan">): boolean =>
+  profile.plan === "paused";
 
 export const isTrialActive = (profile: Pick<Profile, "plan" | "trial_ends_at">): boolean =>
   profile.plan === "trial" &&

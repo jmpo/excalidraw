@@ -17,6 +17,7 @@ import {
   trialDaysLeft,
   getHotmartCheckoutUrl,
   DrawingLimitError,
+  isPaused,
 } from "../data/supabase";
 import { useAuth } from "../auth/AuthContext";
 import { TEMPLATES } from "../data/templates";
@@ -378,6 +379,7 @@ export const Dashboard = ({
   const trialOn = profile ? isTrialActive(profile) : false;
   const daysLeft = profile ? trialDaysLeft(profile) : 0;
   const trialExpired = profile?.plan === "trial" && !trialOn;
+  const accountPaused = profile ? isPaused(profile) : false;
 
   // Limit by plan: free=2, trial=5, pro=unlimited
   const drawingLimit =
@@ -391,10 +393,8 @@ export const Dashboard = ({
     : new Set<string>();
 
   const handleCreate = () => {
-    if (drawings.length >= drawingLimit) {
-      setShowUpgradeModal(true);
-      return;
-    }
+    if (accountPaused) { setShowUpgradeModal(true); return; }
+    if (drawings.length >= drawingLimit) { setShowUpgradeModal(true); return; }
     setShowTypePicker(true);
   };
 
@@ -632,7 +632,7 @@ export const Dashboard = ({
                 ? { background: "#fef3c7", color: "#92400e" }
                 : { background: "#f3f4f6", color: "#6b7280" }),
             }}>
-              {effectivePlan === "pro" ? "⭐ Pro" : effectivePlan === "trial" ? `🚀 Trial · ${daysLeft}d` : "🆓 Free"}
+              {accountPaused ? "⏸ Pausado" : effectivePlan === "pro" ? "⭐ Pro" : effectivePlan === "trial" ? `🚀 Trial · ${daysLeft}d` : "🆓 Free"}
             </span>
           )}
           {onOpenAdmin && (
@@ -681,6 +681,31 @@ export const Dashboard = ({
           >
             Desbloquear todo →
           </button>
+        </div>
+      )}
+
+      {accountPaused && (
+        <div style={{
+          background: "#fef2f2", color: "#991b1b", padding: "10px 28px",
+          fontSize: 13, display: "flex", alignItems: "center", justifyContent: "space-between",
+          borderBottom: "1px solid #fca5a5",
+        }}>
+          <span>
+            ⏸ <strong>Tu acceso está pausado.</strong>{" "}
+            Podés ver tus dibujos pero no crear ni editar hasta regularizar el pago.
+          </span>
+          <a
+            href={getHotmartCheckoutUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding: "5px 16px", background: "#6128ff", color: "#fff",
+              borderRadius: 6, fontSize: 12, fontWeight: 700,
+              textDecoration: "none", whiteSpace: "nowrap",
+            }}
+          >
+            Reactivar acceso →
+          </a>
         </div>
       )}
 
@@ -956,7 +981,7 @@ export const Dashboard = ({
                   className="dashboard-card"
                   onClick={(e) => {
                     if (selectMode) { toggleSelect(drawing.id, e); return; }
-                    if (lockedIds.has(drawing.id)) { setShowUpgradeModal(true); return; }
+                    if (accountPaused || lockedIds.has(drawing.id)) { setShowUpgradeModal(true); return; }
                     onOpenDrawing(drawing.id);
                   }}
                   style={{
