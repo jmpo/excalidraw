@@ -100,7 +100,6 @@ const Dashboard = lazy(() =>
 const MindMapEditor = lazy(() =>
   import("./components/MindMapEditor").then((m) => ({ default: m.MindMapEditor })),
 );
-import { LandingPage } from "./components/LandingPage";
 import { AdminPanel } from "./components/AdminPanel";
 import { OnboardingForm } from "./components/OnboardingForm";
 import { LoginScreen } from "./components/LoginScreen";
@@ -1873,13 +1872,6 @@ const ExcalidrawAppInner = () => {
   const [view, setView] = useState<"canvas" | "dashboard" | "admin">("canvas");
   const [initializing, setInitializing] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
-  const [showLogin, setShowLogin] = useState(() => {
-    const p = new URLSearchParams(window.location.search);
-    return p.has("login") || p.has("signup");
-  });
-  const [loginMode, setLoginMode] = useState<"login" | "signup">(() => {
-    return new URLSearchParams(window.location.search).has("signup") ? "signup" : "login";
-  });
   const [guestMode, setGuestMode] = useState(false);
   const [guestTool, setGuestTool] = useState<"canvas" | "mindmap" | null>(null);
   const [sharedDrawingId, setSharedDrawingId] = useState<string | null>(null);
@@ -1896,9 +1888,9 @@ const ExcalidrawAppInner = () => {
       .catch(() => {});
   }, []);
 
-  // Listen to signup event dispatched from the guest WelcomeScreen
+  // Listen to signup/login event dispatched from the guest WelcomeScreen
   useEffect(() => {
-    const handler = () => setShowLogin(true);
+    const handler = () => setGuestMode(false);
     window.addEventListener("edudraw:signup", handler);
     return () => window.removeEventListener("edudraw:signup", handler);
   }, []);
@@ -1937,12 +1929,6 @@ const ExcalidrawAppInner = () => {
   useEffect(() => {
     const handler = () => {
       const params = getUrlParams();
-      // No-session routes
-      if (params.has("login")) { setShowLogin(true); setLoginMode("login"); return; }
-      if (params.has("signup")) { setShowLogin(true); setLoginMode("signup"); return; }
-      if (!params.has("d") && !params.has("admin") && !params.has("dashboard")) {
-        setShowLogin(false); return; // back to landing
-      }
       // Session routes
       const drawingId = params.get("d");
       const isAdmin = params.has("admin");
@@ -1955,19 +1941,14 @@ const ExcalidrawAppInner = () => {
     return () => window.removeEventListener("popstate", handler);
   }, []);
 
-  // Sync state → URL for login/signup views
+  // Clean up stale login/signup URL params
   useEffect(() => {
-    if (session) return; // only when not logged in
-    if (showLogin) {
-      navigate(loginMode === "signup" ? "/?signup" : "/?login");
-    } else if (!guestMode) {
-      // Only clear to landing if we're not navigating to a session route
-      const params = getUrlParams();
-      if (params.has("login") || params.has("signup")) {
-        navigate("/");
-      }
+    if (session || guestMode) return;
+    const params = getUrlParams();
+    if (params.has("login") || params.has("signup")) {
+      navigate("/");
     }
-  }, [showLogin, loginMode, session, guestMode]);
+  }, [session, guestMode]);
 
   // Auto-load or create drawing when session is ready
   useEffect(() => {
@@ -2062,9 +2043,6 @@ const ExcalidrawAppInner = () => {
   }
 
   if (!session) {
-    if (showLogin) {
-      return <LoginScreen initialMode={loginMode} />;
-    }
     if (guestMode) {
       const enterTool = (tool: "canvas" | "mindmap") => {
         setGuestTool(tool);
@@ -2148,7 +2126,7 @@ const ExcalidrawAppInner = () => {
 
             <p style={{ marginTop: 32, fontSize: 13, color: "rgba(255,255,255,.3)", textAlign: "center" }}>
               ¿Ya tenés cuenta?{" "}
-              <button onClick={() => { setGuestMode(false); setLoginMode("login"); setShowLogin(true); }}
+              <button onClick={() => setGuestMode(false)}
                 style={{ background: "none", border: "none", color: "#c4b5fd", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, padding: 0 }}>
                 Iniciá sesión →
               </button>
@@ -2193,11 +2171,11 @@ const ExcalidrawAppInner = () => {
             {/* Right: auth CTAs */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 11, color: "rgba(255,255,255,.45)", marginRight: 4 }}>Modo invitado</span>
-              <button onClick={() => { setLoginMode("login"); setShowLogin(true); }}
+              <button onClick={() => setGuestMode(false)}
                 style={{ background: "rgba(255,255,255,.15)", color: "#fff", border: "1px solid rgba(255,255,255,.35)", borderRadius: 6, padding: "5px 14px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>
                 Iniciar sesión
               </button>
-              <button onClick={() => { setLoginMode("signup"); setShowLogin(true); }}
+              <button onClick={() => setGuestMode(false)}
                 style={{ background: "#fff", color: "#6128ff", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 800 }}>
                 Crear cuenta gratis →
               </button>
@@ -2222,16 +2200,7 @@ const ExcalidrawAppInner = () => {
         </div>
       );
     }
-    return (
-      <LandingPage
-        onLogin={() => { setLoginMode("login"); setShowLogin(true); }}
-        onSignup={() => { setLoginMode("signup"); setShowLogin(true); }}
-        onGuest={() => {
-          setGuestMode(true);
-          setGuestTool(null);
-        }}
-      />
-    );
+    return <LoginScreen />;
   }
 
   if (initializing) {
