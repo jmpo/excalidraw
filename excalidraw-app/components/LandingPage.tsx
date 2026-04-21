@@ -669,7 +669,7 @@ const BrowserFrame = ({ url, src, alt, eager }: { url: string; src: string; alt:
       width={580}
       height={340}
       loading={eager ? "eager" : "lazy"}
-      decoding={eager ? "sync" : "async"}
+      decoding="async"
       {...(eager ? { fetchPriority: "high" } : {})}
     />
   </div>
@@ -707,6 +707,17 @@ export const LandingPage: React.FC<Props> = ({ onLogin, onSignup, onGuest }) => 
 
   // Track if Lead event was already fired to avoid duplicates
   const leadFiredRef = React.useRef(false);
+
+  // The editor sets body/html overflow:hidden — restore scroll for the landing page
+  useEffect(() => {
+    const prev = { html: document.documentElement.style.overflow, body: document.body.style.overflow };
+    document.documentElement.style.overflow = "auto";
+    document.body.style.overflow = "auto";
+    return () => {
+      document.documentElement.style.overflow = prev.html;
+      document.body.style.overflow = prev.body;
+    };
+  }, []);
 
   // Form is ready when both fields have valid content
   const formReady = email.trim().length > 3 && email.includes("@") && password.length >= 8;
