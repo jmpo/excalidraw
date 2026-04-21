@@ -211,11 +211,14 @@ export const deleteFolder = async (id: string) => {
 
 // ── Share link ────────────────────────────────────────────────────────────────
 
+const SHARE_LINK_DAYS = 30;
+
 export const generateShareLink = async (drawingId: string): Promise<string> => {
   const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + SHARE_LINK_DAYS * 86400000).toISOString();
   const { error } = await supabase
     .from("drawings")
-    .update({ share_token: token })
+    .update({ share_token: token, share_expires_at: expiresAt })
     .eq("id", drawingId);
   if (error) throw error;
   return `${window.location.origin}/?share=${token}`;
@@ -224,10 +227,13 @@ export const generateShareLink = async (drawingId: string): Promise<string> => {
 export const fetchSharedDrawing = async (token: string) => {
   const { data, error } = await supabase
     .from("drawings")
-    .select("id, name, content")
+    .select("id, name, content, share_expires_at")
     .eq("share_token", token)
     .single();
   if (error) throw error;
+  if (data.share_expires_at && new Date(data.share_expires_at) < new Date()) {
+    throw new Error("SHARE_LINK_EXPIRED");
+  }
   return data as { id: string; name: string; content: { elements: unknown[]; appState: Record<string, unknown> } };
 };
 
@@ -241,16 +247,20 @@ export const saveThumbnail = async (id: string, thumbnail: string) => {
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 
-export const fetchProfile = async (): Promise<Profile | null> => {
+export const fetchProfile = async (retries = 4): Promise<Profile | null> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-  if (error) return null;
-  return data as Profile;
+  for (let i = 0; i < retries; i++) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+    if (!error && data) return data as Profile;
+    // Profile row may not exist yet (trigger race on signup) — wait and retry
+    if (i < retries - 1) await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+  }
+  return null;
 };
 
 export const completeOnboarding = async (
