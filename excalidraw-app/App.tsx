@@ -96,7 +96,6 @@ import {
 import type { DrawingType, Profile } from "./data/supabase";
 import { trackGuestSessionStart, trackGuestActivity, trackGuestToolSwitch } from "./data/guestTracking";
 import { printImageAsPdf } from "./utils/pdfExport";
-import { QrShareModal } from "./components/QrShareModal";
 import { EduTemplatesModal } from "./components/EduTemplates";
 const Dashboard = lazy(() =>
   import("./components/Dashboard").then((m) => ({ default: m.Dashboard })),
@@ -573,7 +572,6 @@ const ExcalidrawWrapper = ({
   const [showLibrarySidebar, setShowLibrarySidebar] = useState(true);
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [showAiWhiteboardModal, setShowAiWhiteboardModal] = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
   const [showEduTemplates, setShowEduTemplates] = useState(false);
   const [aiWbTab, setAiWbTab] = useState<"text" | "pdf">("text");
   const [aiWbText, setAiWbText] = useState("");
@@ -1390,25 +1388,6 @@ const ExcalidrawWrapper = ({
                 ▶ Presentar
               </button>
 
-              {!isGuest && (
-                <button
-                  style={{
-                    padding: "6px 12px",
-                    background: "#fff",
-                    color: "#333",
-                    border: "1.5px solid #ccc",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    marginRight: 6,
-                  }}
-                  title="Compartir con código QR"
-                  onClick={() => setShowQrModal(true)}
-                >
-                  QR
-                </button>
-              )}
               {collabError.message && <CollabError collabError={collabError} />}
               <LiveCollaborationTrigger
                 isCollaborating={isCollaborating}
@@ -1703,15 +1682,6 @@ const ExcalidrawWrapper = ({
       <EduTemplatesModal
         excalidrawAPI={excalidrawAPI}
         onClose={() => setShowEduTemplates(false)}
-      />
-    )}
-
-    {/* QR Share modal */}
-    {showQrModal && !isGuest && drawingId && (
-      <QrShareModal
-        drawingId={drawingId}
-        drawingName={drawingId}
-        onClose={() => setShowQrModal(false)}
       />
     )}
 
@@ -2053,17 +2023,8 @@ const ExcalidrawAppInner = () => {
   }, [session, guestMode]);
 
   // Auto-load or create drawing when session is ready.
-  // Waits for profileChecked so we never flash the dashboard before onboarding.
   useEffect(() => {
     if (!session || currentDrawingId || initDone.current) {
-      return;
-    }
-    // Don't proceed until we know whether onboarding is needed.
-    if (!profileChecked) {
-      return;
-    }
-    // If onboarding is pending, don't initialize — OnboardingForm will render instead.
-    if (showOnboarding) {
       return;
     }
     initDone.current = true;
@@ -2085,6 +2046,15 @@ const ExcalidrawAppInner = () => {
       fetchDrawing(urlDrawingId)
         .then((d) => setCurrentDrawingType(d?.type ?? "canvas"))
         .catch(() => {});
+      return;
+    }
+    // For fresh loads (no drawing in URL), wait until we know onboarding status.
+    if (!profileChecked) {
+      initDone.current = false;
+      return;
+    }
+    if (showOnboarding) {
+      initDone.current = false;
       return;
     }
     // Check if URL says dashboard explicitly
