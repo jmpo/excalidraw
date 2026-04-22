@@ -1,4 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 640);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return isMobile;
+};
+
+const DARK_KEY = "edudraw_dark_mode";
+const useDarkMode = () => {
+  const [dark, setDark] = useState(() => localStorage.getItem(DARK_KEY) === "1");
+  const toggle = () => setDark((v) => {
+    const next = !v;
+    localStorage.setItem(DARK_KEY, next ? "1" : "0");
+    return next;
+  });
+  return { dark, toggle };
+};
 
 import { pixelAddToCart } from "../data/metaPixel";
 import {
@@ -337,6 +358,9 @@ export const Dashboard = ({
   onProfileChange?: (p: Profile) => void;
 }) => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
+  const { dark, toggle: toggleDark } = useDarkMode();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string | null | "all">(
@@ -528,7 +552,7 @@ export const Dashboard = ({
     .filter((d) => !searchQuery || d.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div className="dashboard">
+    <div className={`dashboard${dark ? " dashboard--dark" : ""}`}>
       {showUpgradeModal && (
         <UpgradeModal onClose={() => setShowUpgradeModal(false)} currentPlan={effectivePlan} />
       )}
@@ -622,6 +646,15 @@ export const Dashboard = ({
           <span className="dashboard-title">Mis dibujos</span>
         </div>
         <div className="dashboard-header-right">
+          {isMobile && (
+            <button
+              onClick={() => setSidebarOpen(v => !v)}
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, padding: "6px 8px", color: "#6965db", minHeight: 40 }}
+              title="Carpetas"
+            >
+              📂
+            </button>
+          )}
           <span className="dashboard-user">{user?.email}</span>
           {/* Plan badge */}
           {profile && (
@@ -637,6 +670,13 @@ export const Dashboard = ({
               {accountPaused ? "⏸ Pausado" : effectivePlan === "pro" ? "⭐ Pro" : effectivePlan === "trial" ? `🚀 Trial · ${daysLeft}d` : "🆓 Free"}
             </span>
           )}
+          <button
+            onClick={toggleDark}
+            title={dark ? "Modo claro" : "Modo oscuro"}
+            style={{ background: "none", border: "1.5px solid #d8d5f5", borderRadius: 6, padding: "6px 10px", fontSize: 15, cursor: "pointer", minHeight: 36 }}
+          >
+            {dark ? "☀️" : "🌙"}
+          </button>
           {onOpenAdmin && (
             <button onClick={onOpenAdmin} style={{ padding: "6px 14px", background: "#f0eeff", color: "#6128ff", border: "none", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
               ⚙ Admin
@@ -711,7 +751,14 @@ export const Dashboard = ({
         </div>
       )}
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", position: "relative" }}>
+        {/* Overlay para cerrar sidebar en mobile */}
+        {isMobile && sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 9, background: "rgba(0,0,0,0.3)" }}
+          />
+        )}
         {/* Sidebar de carpetas */}
         <aside
           style={{
@@ -721,6 +768,16 @@ export const Dashboard = ({
             background: "#fafafa",
             flexShrink: 0,
             overflowY: "auto",
+            ...(isMobile ? {
+              position: "fixed",
+              top: 0,
+              left: 0,
+              height: "100vh",
+              zIndex: 10,
+              transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+              transition: "transform 0.22s ease",
+              boxShadow: sidebarOpen ? "4px 0 16px rgba(0,0,0,0.12)" : "none",
+            } : {}),
           }}
         >
           <div

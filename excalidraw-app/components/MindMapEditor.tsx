@@ -1,9 +1,20 @@
 import { useEffect, useRef, useState } from "react";
+
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 640);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return isMobile;
+};
 import MindElixir from "mind-elixir";
 import type { MindElixirData, MindElixirInstance, Theme } from "mind-elixir";
 import nodeMenu from "@mind-elixir/node-menu-neo";
 
 import { fetchDrawing, saveDrawing, supabase } from "../data/supabase";
+import { printImageAsPdf } from "../utils/pdfExport";
 
 // ── Sticker categories ─────────────────────────────────────────────────────────
 
@@ -219,6 +230,7 @@ export const MindMapEditor = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const meRef = useRef<MindElixirInstance | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMobile = useIsMobile();
 
   const [drawingName, setDrawingName] = useState("Sin título");
   const [editingName, setEditingName] = useState(false);
@@ -594,6 +606,15 @@ export const MindMapEditor = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPdf = async () => {
+    if (!meRef.current) return;
+    const blob = await meRef.current.exportPng();
+    if (!blob) return;
+    const reader = new FileReader();
+    reader.onload = () => printImageAsPdf(reader.result as string, drawingName);
+    reader.readAsDataURL(blob);
+  };
+
   const handleExport = () => {
     if (!meRef.current) return;
     const blob = meRef.current.exportSvg();
@@ -610,9 +631,14 @@ export const MindMapEditor = ({
 
       {/* Top bar */}
       <div style={{
-        height: 50, background: "#fff", borderBottom: "1px solid #e8e8f0",
-        display: "flex", alignItems: "center", padding: "0 16px", gap: 10,
+        height: isMobile ? "auto" : 50,
+        minHeight: 50,
+        background: "#fff", borderBottom: "1px solid #e8e8f0",
+        display: "flex", alignItems: "center", padding: "0 8px", gap: 6,
         flexShrink: 0, zIndex: 10,
+        overflowX: isMobile ? "auto" : "visible",
+        flexWrap: isMobile ? "nowrap" : "nowrap",
+        WebkitOverflowScrolling: "touch" as any,
       }}>
         <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "#6965db", fontSize: 22, padding: "4px 8px" }}>←</button>
 
@@ -632,23 +658,25 @@ export const MindMapEditor = ({
         )}
 
         {/* Layout picker */}
-        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: "#aaa" }}>Estructura:</span>
+        <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+          {!isMobile && <span style={{ fontSize: 11, color: "#aaa" }}>Estructura:</span>}
           {LAYOUTS.map((l, i) => (
             <button
               key={l.label}
               onClick={() => applyLayout(i)}
               title={l.label}
               style={{
-                padding: "4px 10px", fontSize: 12, borderRadius: 6, cursor: "pointer",
+                padding: isMobile ? "6px 8px" : "4px 10px",
+                fontSize: 12, borderRadius: 6, cursor: "pointer",
                 border: activeLayout === i ? "2px solid #6965db" : "1px solid #e0e0e0",
                 background: activeLayout === i ? "#f0efff" : "#fff",
                 color: activeLayout === i ? "#6965db" : "#555",
                 fontWeight: activeLayout === i ? 700 : 400,
-                transition: "all 0.12s",
+                transition: "all 0.12s", whiteSpace: "nowrap",
+                minHeight: 36,
               }}
             >
-              {l.icon} {l.label}
+              {isMobile ? l.icon : `${l.icon} ${l.label}`}
             </button>
           ))}
         </div>
@@ -656,32 +684,34 @@ export const MindMapEditor = ({
         <div style={{ width: 1, height: 24, background: "#e8e8f0", flexShrink: 0 }} />
 
         {/* Theme picker */}
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: "#aaa" }}>Estilo:</span>
+        <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+          {!isMobile && <span style={{ fontSize: 11, color: "#aaa" }}>Estilo:</span>}
           {THEMES.map((t, i) => (
             <button
               key={t.name}
               onClick={() => applyTheme(i)}
               title={t.name}
               style={{
-                padding: "4px 10px", fontSize: 12, borderRadius: 6, cursor: "pointer",
+                padding: isMobile ? "6px 8px" : "4px 10px",
+                fontSize: 12, borderRadius: 6, cursor: "pointer",
                 border: activeTheme === i ? "2px solid #6965db" : "1px solid #e0e0e0",
                 background: activeTheme === i ? "#f0efff" : "#fff",
                 color: activeTheme === i ? "#6965db" : "#555",
                 fontWeight: activeTheme === i ? 600 : 400,
-                transition: "all 0.12s",
+                transition: "all 0.12s", whiteSpace: "nowrap",
+                minHeight: 36,
               }}
             >
-              {t.name}
+              {isMobile ? t.name.slice(0, 3) : t.name}
             </button>
           ))}
         </div>
 
         <button
           onClick={() => setShowTemplates(true)}
-          style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 6, padding: "5px 12px", fontSize: 12, color: "#555", cursor: "pointer" }}
+          style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 6, padding: isMobile ? "6px 8px" : "5px 12px", fontSize: 12, color: "#555", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, minHeight: 36 }}
         >
-          📋 Plantillas
+          {isMobile ? "📋" : "📋 Plantillas"}
         </button>
 
         <button
@@ -689,12 +719,12 @@ export const MindMapEditor = ({
           title="Generar mapa mental con IA desde texto"
           style={{
             background: "linear-gradient(135deg,#7c4bff,#6128ff)",
-            border: "none", borderRadius: 6, padding: "5px 13px", fontSize: 12,
+            border: "none", borderRadius: 6, padding: isMobile ? "6px 8px" : "5px 13px", fontSize: 12,
             color: "#fff", cursor: "pointer", fontWeight: 600,
-            boxShadow: "0 2px 8px rgba(97,40,255,.3)",
+            boxShadow: "0 2px 8px rgba(97,40,255,.3)", whiteSpace: "nowrap", flexShrink: 0, minHeight: 36,
           }}
         >
-          ✨ Generar con IA
+          {isMobile ? "✨" : "✨ Generar con IA"}
         </button>
 
         <button
@@ -703,19 +733,22 @@ export const MindMapEditor = ({
           style={{
             background: showStickerPicker ? "#f0efff" : "none",
             border: `1px solid ${showStickerPicker ? "#6965db" : "#e0e0e0"}`,
-            borderRadius: 6, padding: "5px 12px", fontSize: 12,
-            color: showStickerPicker ? "#6965db" : "#555", cursor: "pointer",
+            borderRadius: 6, padding: isMobile ? "6px 8px" : "5px 12px", fontSize: 12,
+            color: showStickerPicker ? "#6965db" : "#555", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, minHeight: 36,
           }}
         >
-          🎨 Stickers
+          {isMobile ? "🎨" : "🎨 Stickers"}
         </button>
 
-        <div style={{ display: "flex", gap: 4 }}>
-          <button onClick={handleExport} style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: "6px 0 0 6px", padding: "5px 10px", fontSize: 12, color: "#555", cursor: "pointer", borderRight: "none" }}>
-            ↓ SVG
+        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+          <button onClick={handleExport} style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: "6px 0 0 6px", padding: "5px 10px", fontSize: 12, color: "#555", cursor: "pointer", borderRight: "none", minHeight: 36 }}>
+            SVG
           </button>
-          <button onClick={handleExportPng} style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: "0 6px 6px 0", padding: "5px 10px", fontSize: 12, color: "#555", cursor: "pointer" }}>
+          <button onClick={handleExportPng} style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: "0", padding: "5px 10px", fontSize: 12, color: "#555", cursor: "pointer", borderLeft: "none", minHeight: 36 }}>
             PNG
+          </button>
+          <button onClick={handleExportPdf} style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: "0 6px 6px 0", padding: "5px 10px", fontSize: 12, color: "#e05c00", fontWeight: 600, cursor: "pointer", borderLeft: "none", minHeight: 36 }}>
+            PDF
           </button>
         </div>
 

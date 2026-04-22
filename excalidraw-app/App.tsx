@@ -95,6 +95,9 @@ import {
 } from "./data/supabase";
 import type { DrawingType, Profile } from "./data/supabase";
 import { trackGuestSessionStart, trackGuestActivity, trackGuestToolSwitch } from "./data/guestTracking";
+import { printImageAsPdf } from "./utils/pdfExport";
+import { QrShareModal } from "./components/QrShareModal";
+import { EduTemplatesModal } from "./components/EduTemplates";
 const Dashboard = lazy(() =>
   import("./components/Dashboard").then((m) => ({ default: m.Dashboard })),
 );
@@ -570,6 +573,8 @@ const ExcalidrawWrapper = ({
   const [showLibrarySidebar, setShowLibrarySidebar] = useState(true);
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [showAiWhiteboardModal, setShowAiWhiteboardModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [showEduTemplates, setShowEduTemplates] = useState(false);
   const [aiWbTab, setAiWbTab] = useState<"text" | "pdf">("text");
   const [aiWbText, setAiWbText] = useState("");
   const [aiWbPdfFile, setAiWbPdfFile] = useState<File | null>(null);
@@ -1304,6 +1309,23 @@ const ExcalidrawWrapper = ({
               <button
                 style={{
                   padding: "6px 12px",
+                  background: "#fff",
+                  color: "#6965db",
+                  border: "1.5px solid #6965db",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  marginRight: 6,
+                }}
+                onClick={() => setShowEduTemplates(true)}
+                title="Plantillas educativas"
+              >
+                📐 Plantillas
+              </button>
+              <button
+                style={{
+                  padding: "6px 12px",
                   background: "linear-gradient(135deg,#7c4bff,#6128ff)",
                   color: "#fff",
                   border: "none",
@@ -1328,6 +1350,38 @@ const ExcalidrawWrapper = ({
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: "pointer",
+                  marginRight: 6,
+                }}
+                title="Exportar como PDF"
+                onClick={async () => {
+                  const api = excalidrawAPI;
+                  if (!api) return;
+                  const elements = api.getSceneElements().filter(el => !el.isDeleted);
+                  if (elements.length === 0) return;
+                  const blob = await exportToBlob({
+                    elements,
+                    appState: { ...api.getAppState(), exportBackground: true },
+                    files: api.getFiles(),
+                    mimeType: "image/png",
+                    quality: 1,
+                  });
+                  const reader = new FileReader();
+                  reader.onload = () => printImageAsPdf(reader.result as string, drawingId ?? "EduDraw");
+                  reader.readAsDataURL(blob);
+                }}
+              >
+                📄 PDF
+              </button>
+              <button
+                style={{
+                  padding: "6px 12px",
+                  background: "#fff",
+                  color: "#333",
+                  border: "1.5px solid #ccc",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
                   marginRight: 8,
                 }}
                 onClick={enterPresentation}
@@ -1336,6 +1390,25 @@ const ExcalidrawWrapper = ({
                 ▶ Presentar
               </button>
 
+              {!isGuest && (
+                <button
+                  style={{
+                    padding: "6px 12px",
+                    background: "#fff",
+                    color: "#333",
+                    border: "1.5px solid #ccc",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    marginRight: 6,
+                  }}
+                  title="Compartir con código QR"
+                  onClick={() => setShowQrModal(true)}
+                >
+                  QR
+                </button>
+              )}
               {collabError.message && <CollabError collabError={collabError} />}
               <LiveCollaborationTrigger
                 isCollaborating={isCollaborating}
@@ -1623,6 +1696,23 @@ const ExcalidrawWrapper = ({
       >
         ✕ Salir
       </button>
+    )}
+
+    {/* Edu Templates modal */}
+    {showEduTemplates && excalidrawAPI && (
+      <EduTemplatesModal
+        excalidrawAPI={excalidrawAPI}
+        onClose={() => setShowEduTemplates(false)}
+      />
+    )}
+
+    {/* QR Share modal */}
+    {showQrModal && !isGuest && drawingId && (
+      <QrShareModal
+        drawingId={drawingId}
+        drawingName={drawingId}
+        onClose={() => setShowQrModal(false)}
+      />
     )}
 
     {/* AI Whiteboard modal */}
