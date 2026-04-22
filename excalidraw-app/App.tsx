@@ -2326,6 +2326,7 @@ const ExcalidrawAppInner = () => {
           }}
           profile={profile}
           onProfileChange={setProfile}
+          onCompleteProfile={() => setShowOnboarding(true)}
           onOpenAdmin={
             session?.user?.email === "pompa.07@gmail.com"
               ? () => { navigate("/?admin"); setView("admin"); }

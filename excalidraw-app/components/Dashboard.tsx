@@ -351,11 +351,13 @@ export const Dashboard = ({
   onOpenAdmin,
   profile,
   onProfileChange,
+  onCompleteProfile,
 }: {
   onOpenDrawing: (id: string) => void;
   onOpenAdmin?: () => void;
   profile?: Profile | null;
   onProfileChange?: (p: Profile) => void;
+  onCompleteProfile?: () => void;
 }) => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -963,6 +965,51 @@ export const Dashboard = ({
 
         {/* Main content */}
         <main className="dashboard-main" style={{ flex: 1, overflowY: "auto" }}>
+
+          {/* Onboarding reminder — shown when user skipped the form */}
+          {profile?.onboarding_done && !profile?.full_name && onCompleteProfile && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              background: dark ? "#1e1a3a" : "#f0eeff",
+              border: `1.5px solid ${dark ? "#3a2a6a" : "#c8c0f8"}`,
+              borderRadius: 10,
+              padding: "12px 18px",
+              marginBottom: 20,
+              flexWrap: "wrap",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 20 }}>🎁</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: dark ? "#c0b8f8" : "#4a18cc" }}>
+                    Completá tu perfil y obtené 3 días extra de prueba
+                  </div>
+                  <div style={{ fontSize: 11, color: dark ? "#9090b0" : "#888", marginTop: 2 }}>
+                    Solo tarda 30 segundos. Válido en las primeras 72 hs.
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={onCompleteProfile}
+                style={{
+                  padding: "7px 16px",
+                  background: "linear-gradient(94deg, #4a0fcc, #6128ff)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 7,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Completar perfil →
+              </button>
+            </div>
+          )}
+
           <div className="dashboard-actions" style={{ flexWrap: "wrap", gap: 8 }}>
             <button className="dashboard-btn-new" onClick={handleCreate}>
               + Nuevo dibujo

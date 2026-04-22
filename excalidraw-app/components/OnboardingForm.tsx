@@ -222,7 +222,7 @@ export const OnboardingForm = ({ onDone }: { onDone: () => void }) => {
                 padding: 0,
               }}
             >
-              {skipping ? "Cerrando..." : "No quiero verlo más, omitir"}
+              {skipping ? "Cerrando..." : "Omitir, completar luego"}
             </button>
           </div>
         </form>
