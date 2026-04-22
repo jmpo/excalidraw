@@ -86,6 +86,16 @@
   }
 }
 
+// Hide the built-in Excalidraw sidebar toggle — we use our custom Biblioteca panel instead
+.excalidraw {
+  .sidebar-trigger,
+  [data-testid="sidebar-trigger"],
+  button[title="Library"],
+  button[aria-label="Library"] {
+    display: none !important;
+  }
+}
+
 .plus-banner {
   display: flex;
   justify-content: center;
@@ -127,6 +137,18 @@
       color: black !important;
     }
   }
+}
+
+// ── Mind Elixir: hide the entire node-menu-neo panel (replaced by custom panel) ─
+.node-menu {
+  display: none !important;
+}
+
+// Hide native sticker icons rendered above nodes by Mind Elixir
+me-node-icons,
+.me-node-icons,
+[class*="node-icons"] {
+  display: none !important;
 }
 
 // ── Mind Elixir cursor & pan mode ─────────────────────────────────────────────

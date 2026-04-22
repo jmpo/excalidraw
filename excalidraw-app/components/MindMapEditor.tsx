@@ -13,6 +13,8 @@ import MindElixir from "mind-elixir";
 import type { MindElixirData, MindElixirInstance, Theme } from "mind-elixir";
 import nodeMenu from "@mind-elixir/node-menu-neo";
 
+import { MindMapLaser } from "./MindMapLaser";
+import { MindMapShortcuts } from "./MindMapShortcuts";
 import { fetchDrawing, saveDrawing, supabase } from "../data/supabase";
 import { printImageAsPdf } from "../utils/pdfExport";
 
@@ -60,6 +62,36 @@ const STICKER_CATS: { label: string; icon: string; bg: string; emojis: string[] 
     icon: "😊",
     bg: "#fff7ed",
     emojis: ["😀","😃","😄","😁","😆","🥹","😅","😂","🤣","☺️","😊","😇","🥰","😍","🤩","😘","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤫","🤔","😐","😬","🙄","😏","😒","😔","😪","😴","😷","🤒","🤕","🥵","🥶","😵","🤯","🤠","🥳","🥸","😎","🤓","🧐","😳","🥺","😢","😭","😱","😡","😠","🤬","😈","👹","👺","👻","🤖","💀"],
+  },
+  {
+    label: "Naturaleza",
+    icon: "🌿",
+    bg: "#ecfdf5",
+    emojis: ["🌿","🌱","🌲","🌳","🌴","🌵","🎋","🎍","🍀","☘️","🍃","🍂","🍁","🍄","🌾","💐","🌷","🌹","🥀","🌺","🌸","🌼","🌻","🌞","🌝","🌛","🌜","🌚","🌕","🌙","⭐","🌟","💫","✨","☀️","🌤️","⛅","🌦️","🌧️","⛈️","🌩️","❄️","🌨️","🌪️","🌫️","🌈","☔","⚡","🌊","🏔️","🗻","🌋","🏝️","🦋","🐝","🐛","🦗","🌺"],
+  },
+  {
+    label: "Tecnología",
+    icon: "💻",
+    bg: "#eff6ff",
+    emojis: ["💻","🖥️","🖨️","⌨️","🖱️","🖲️","💽","💾","💿","📀","📱","☎️","📞","📟","📠","📺","📻","🎙️","🎚️","🎛️","🧭","⏱️","⏲️","⏰","🔋","🔌","💡","🔦","🕯️","🪔","🧲","🔧","🔨","⚙️","🛠️","🔩","🪛","🔑","🗝️","🔐","🔒","🔓","🔏","📡","🛰️","🚀","🤖","👾","🕹️","🎮","📲","💬","📧","🌐","🔗","💻","🖥"],
+  },
+  {
+    label: "Comida",
+    icon: "🍕",
+    bg: "#fff1f2",
+    emojis: ["🍕","🍔","🌮","🌯","🥗","🍜","🍝","🍛","🍱","🍣","🍤","🍗","🥩","🥚","🍳","🥞","🧇","🥓","🥐","🍞","🥖","🧀","🥨","🥯","🍦","🍧","🍨","🍩","🍪","🎂","🍰","🧁","🍫","🍬","🍭","🍮","🍯","🍷","🍸","🍹","🧃","🥤","☕","🍵","🧋","🥛","🍺","🍻","🧊","🫖","🥂","🍾","🥃"],
+  },
+  {
+    label: "Animales",
+    icon: "🐶",
+    bg: "#fdf4ff",
+    emojis: ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🙈","🙉","🙊","🐔","🐧","🐦","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄","🐝","🐛","🦋","🐌","🐞","🐜","🦟","🦗","🦂","🐢","🐍","🦎","🦖","🦕","🐙","🦑","🦐","🦞","🦀","🐡","🐟","🐠","🐬","🐳","🐋","🦈","🐊","🐅","🐆","🦓","🦍","🦧","🐘","🦛","🦏","🐪","🐫","🦒","🦘","🦬","🐃","🐂","🐄","🐎","🦙","🐏","🐑","🦌","🐕","🐩","🦮"],
+  },
+  {
+    label: "Viajes",
+    icon: "✈️",
+    bg: "#f0f9ff",
+    emojis: ["✈️","🚀","🛸","🚁","🛩️","🚂","🚃","🚄","🚅","🚆","🚇","🚈","🚉","🚊","🚝","🚞","🚋","🚌","🚍","🚎","🚐","🚑","🚒","🚓","🚔","🚕","🚖","🚗","🚘","🚙","🛻","🚚","🚛","🚜","🏎️","🏍️","🛵","🚲","🛴","🛹","🛼","🚏","🛣️","🗺️","🧭","🗼","🗽","⛪","🕌","🛕","🕍","⛩️","🏯","🏰","⛺","🏕️","🌅","🌄","🌠","🎇","🎆","🌇","🌆","🏙️","🌃","🌉","🌌","🌁","🗾","🏔️","⛰️","🌋","🗻","🏕️","🏖️","🏜️","🏝️","🏞️"],
   },
 ];
 
@@ -216,6 +248,7 @@ const MIND_TEMPLATES: { name: string; icon: string; desc: string; data: MindElix
   },
 ];
 
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export const MindMapEditor = ({
@@ -242,6 +275,17 @@ export const MindMapEditor = ({
   const [stickerCatIdx, setStickerCatIdx] = useState(0);
   const [stickerMsg, setStickerMsg] = useState<string | null>(null);
   const [stickerAtEnd, setStickerAtEnd] = useState(false);
+  const [laserMode, setLaserMode] = useState(false);
+  const laserModeRef = useRef(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Custom style panel
+  const [stylePanel, setStylePanel] = useState(false);
+  const [nodeColor, setNodeColor] = useState("");
+  const [nodeBg, setNodeBg] = useState("");
+  const [nodeBold, setNodeBold] = useState(false);
+  const [nodeItalic, setNodeItalic] = useState(false);
+  const [nodeFontSize, setNodeFontSize] = useState("");
 
   const [activeLayout, setActiveLayout] = useState(0); // 0=SIDE 1=RIGHT 2=LEFT
   const [zoomPct, setZoomPct] = useState(100);
@@ -464,6 +508,7 @@ export const MindMapEditor = ({
           setPanMode(v => {
             const next = !v;
             (meRef.current as any).mouseSelectionButton = next ? 2 : 0;
+            if (next) { laserModeRef.current = false; setLaserMode(false); }
             return next;
           });
         }
@@ -478,6 +523,129 @@ export const MindMapEditor = ({
     activeThemeRef.current = idx;
     meRef.current?.changeTheme(THEMES[idx], true);
     scheduleSave(idx);
+  };
+
+  // DOM observer: hide Tag/Icon/URL from node-menu-neo + render center stickers
+  useEffect(() => {
+    const hideMenuFields = () => {
+      const menu = document.querySelector(".mind-elixir-node-menu");
+      if (!menu) return;
+
+      // 1. Hide the "Sticker" tab button AND its tab content panel
+      menu.querySelectorAll<HTMLElement>("button").forEach((btn) => {
+        if (btn.textContent?.trim() === "Sticker") {
+          btn.style.display = "none";
+          // If Sticker tab is currently active, click Style tab to switch back
+          if (btn.classList.contains("active") || btn.getAttribute("aria-selected") === "true") {
+            const styleBtn = Array.from(menu.querySelectorAll<HTMLElement>("button"))
+              .find((b) => b.textContent?.trim() === "Style");
+            styleBtn?.click();
+          }
+        }
+      });
+      // Also hide any sticker grid content that might be visible
+      menu.querySelectorAll<HTMLElement>("[class*='sticker'], [class*='emoji-grid']").forEach((el) => {
+        el.style.display = "none";
+      });
+
+      // 2. Hide Tag, Icon, URL labels (plain <p>) and their following input sibling
+      menu.querySelectorAll<HTMLElement>("p").forEach((p) => {
+        const txt = p.textContent?.trim() ?? "";
+        if (txt === "Tag" || txt === "Icon" || txt === "URL") {
+          p.style.display = "none";
+          const next = p.nextElementSibling as HTMLElement | null;
+          if (next && (next.tagName === "INPUT" || next.tagName === "TEXTAREA")) {
+            next.style.display = "none";
+          }
+        }
+      });
+
+      // 3. Hide by known plugin class names
+      menu.querySelectorAll<HTMLElement>(".nm-icon, .nm-url").forEach((el) => {
+        el.style.display = "none";
+        const prev = el.previousElementSibling as HTMLElement | null;
+        if (prev?.tagName === "P") prev.style.display = "none";
+      });
+    };
+
+    const observer = new MutationObserver(() => {
+      hideMenuFields();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    hideMenuFields();
+    return () => observer.disconnect();
+  }, []);
+
+  // ── Keyboard shortcuts ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "l" || e.key === "L") {
+        const next = !laserModeRef.current;
+        laserModeRef.current = next;
+        setLaserMode(next);
+        if (next) { setPanMode(false); (meRef.current as any).mouseSelectionButton = 0; }
+      }
+      if (e.key === "?") {
+        setShowShortcuts((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Sync custom style panel with selected node
+  useEffect(() => {
+    if (!loaded) return;
+    const me = meRef.current as any;
+    if (!me) return;
+    const onSelect = (nodeObj: any) => {
+      const style = nodeObj?.style ?? {};
+      setNodeColor(style.color ?? "");
+      setNodeBg(style.background ?? "");
+      setNodeBold(style.fontWeight === "bold");
+      setNodeItalic(style.fontStyle === "italic");
+      setNodeFontSize(style.fontSize ?? "");
+      setStylePanel(true);
+    };
+    const onUnselect = () => setStylePanel(false);
+    me.bus.addListener("selectNode", onSelect);
+    me.bus.addListener("unselectNode", onUnselect);
+    return () => {
+      me.bus.removeListener?.("selectNode", onSelect);
+      me.bus.removeListener?.("unselectNode", onUnselect);
+    };
+  }, [loaded]);
+
+  const applyNodeStyle = (updates: Record<string, string>) => {
+    const me = meRef.current as any;
+    if (!me?.currentNode) return;
+    const tpc = me.currentNode as HTMLElement;
+    const nodeObj = (tpc as any).nodeObj;
+    if (!nodeObj) return;
+    nodeObj.style = { ...(nodeObj.style ?? {}), ...updates };
+    // Apply visually to the DOM element
+    Object.entries(updates).forEach(([k, v]) => {
+      if (k === "color") tpc.style.color = v;
+      if (k === "background") tpc.style.background = v;
+      if (k === "fontWeight") tpc.style.fontWeight = v;
+      if (k === "fontStyle") tpc.style.fontStyle = v;
+      if (k === "fontSize") tpc.style.fontSize = v;
+    });
+    me.bus.fire?.("operation", { name: "finishedEdit" });
+    scheduleSave();
+  };
+
+  const toggleLaser = () => {
+    const next = !laserModeRef.current;
+    laserModeRef.current = next;
+    setLaserMode(next);
+    // Laser and pan are mutually exclusive
+    if (next) {
+      setPanMode(false);
+      (meRef.current as any).mouseSelectionButton = 0;
+    }
   };
 
   // Layout switching — methods confirmed in mind-elixir type definitions
@@ -572,14 +740,19 @@ export const MindMapEditor = ({
       setTimeout(() => setStickerMsg(null), 2000);
       return;
     }
-    const currentNode = me.currentNode; // Topic element (me-tpc)
+    const currentNode = me.currentNode;
     const nodeObj = (currentNode as any).nodeObj as { topic: string } | undefined;
     if (!nodeObj) return;
+
     const newTopic = stickerAtEnd
       ? `${nodeObj.topic} ${emoji}`
       : `${emoji} ${nodeObj.topic}`;
-    // setNodeTopic is the official Mind Elixir API — updates DOM in real time
+
     await (me as any).setNodeTopic(currentNode, newTopic);
+    // Immediately update DOM so the change is visible without waiting for a re-render
+    const tpc = currentNode as HTMLElement;
+    tpc.textContent = newTopic;
+
     scheduleSave();
     setStickerMsg(`${emoji} agregado`);
     setTimeout(() => setStickerMsg(null), 1500);
@@ -870,6 +1043,7 @@ export const MindMapEditor = ({
         className={panMode ? "me-pan-mode" : undefined}
         style={{ flex: 1, overflow: "hidden", position: "relative" }}
       >
+        <MindMapLaser active={laserMode} containerRef={containerRef} />
         {/* Drop zone overlay — shown in SIDE mode while dragging */}
         {dragSide && (
           <div style={{
@@ -921,10 +1095,10 @@ export const MindMapEditor = ({
               const me = meRef.current as any;
               if (!me) return;
               const next = !panMode;
-              // When pan mode ON: move selection trigger to right-click (2)
-              // so left-drag on background pans instead of selecting
               me.mouseSelectionButton = next ? 2 : 0;
               setPanMode(next);
+              // Pan and laser are mutually exclusive
+              if (next) { laserModeRef.current = false; setLaserMode(false); }
             }}
             title={panMode ? "Modo mano activo — clic para volver a modo normal (H)" : "Modo mano — arrastrá para navegar el canvas (H)"}
             style={{
@@ -933,10 +1107,38 @@ export const MindMapEditor = ({
               borderRadius: 8, width: 34, height: 30, fontSize: 16,
               cursor: "pointer", color: panMode ? "#fff" : "#888",
               display: "flex", alignItems: "center", justifyContent: "center",
-              marginRight: 4,
             }}
           >✋</button>
-          <div style={{ width: 1, height: 20, background: "#f0f0f8", marginRight: 4 }} />
+
+          {/* Laser pointer toggle */}
+          <button
+            onClick={toggleLaser}
+            title={laserMode ? "Puntero láser activo — clic para desactivar (L)" : "Puntero láser — mostrá un rayo rojo al mover el mouse (L)"}
+            style={{
+              background: laserMode ? "#ff3030" : "none",
+              border: laserMode ? "none" : "1px solid #e0e0e0",
+              borderRadius: 8, width: 34, height: 30, fontSize: 15,
+              cursor: "pointer", color: laserMode ? "#fff" : "#888",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >🔴</button>
+
+          <div style={{ width: 1, height: 20, background: "#f0f0f8", margin: "0 2px" }} />
+
+          {/* Undo */}
+          <button
+            onClick={() => (meRef.current as any)?.undo?.()}
+            title="Deshacer (Ctrl+Z)"
+            style={{ background: "none", border: "none", borderRadius: 8, width: 32, height: 30, fontSize: 17, cursor: "pointer", color: "#666", display: "flex", alignItems: "center", justifyContent: "center" }}
+          >↩</button>
+          {/* Redo */}
+          <button
+            onClick={() => (meRef.current as any)?.redo?.()}
+            title="Rehacer (Ctrl+Y)"
+            style={{ background: "none", border: "none", borderRadius: 8, width: 32, height: 30, fontSize: 17, cursor: "pointer", color: "#666", display: "flex", alignItems: "center", justifyContent: "center" }}
+          >↪</button>
+
+          <div style={{ width: 1, height: 20, background: "#f0f0f8", margin: "0 2px" }} />
 
           {/* Zoom out */}
           <button
@@ -980,8 +1182,118 @@ export const MindMapEditor = ({
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5"/><line x1="7" y1="1" x2="7" y2="3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="7" y1="10.5" x2="7" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="1" y1="7" x2="3.5" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="10.5" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
             Centrar
           </button>
+
+          <div style={{ width: 1, height: 20, background: "#f0f0f8", margin: "0 2px" }} />
+
+          {/* Keyboard shortcuts help */}
+          <button
+            onClick={() => setShowShortcuts(true)}
+            title="Atajos de teclado (?)"
+            style={{
+              background: "none", border: "1px solid #e0e0e0", borderRadius: 8,
+              width: 30, height: 30, fontSize: 13, cursor: "pointer",
+              color: "#6965db", fontWeight: 800, display: "flex",
+              alignItems: "center", justifyContent: "center",
+            }}
+          >?</button>
         </div>
       )}
+
+      {/* ── Custom node style panel ───────────────────────────────────────── */}
+      {stylePanel && (
+        <div style={{
+          position: "fixed", right: 16, top: "50%", transform: "translateY(-50%)",
+          background: "#fff", borderRadius: 16, boxShadow: "0 8px 32px rgba(105,101,219,.2)",
+          border: "1.5px solid #e8e6ff", padding: "14px 16px", zIndex: 200,
+          display: "flex", flexDirection: "column", gap: 10, minWidth: 180,
+          userSelect: "none",
+        }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>✏️ Estilo del nodo</span>
+            <button onClick={() => setStylePanel(false)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#bbb", fontSize: 16, lineHeight: 1, padding: "0 2px" }}>×</button>
+          </div>
+
+          {/* Font style */}
+          <div>
+            <div style={{ fontSize: 10, color: "#aaa", fontWeight: 700, marginBottom: 5, letterSpacing: ".05em" }}>TEXTO</div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {[
+                { label: "N", style: { fontWeight: "bold" }, active: nodeBold, title: "Negrita",
+                  onClick: () => { const v = !nodeBold; setNodeBold(v); applyNodeStyle({ fontWeight: v ? "bold" : "normal" }); } },
+                { label: "I", style: { fontStyle: "italic" }, active: nodeItalic, title: "Cursiva",
+                  onClick: () => { const v = !nodeItalic; setNodeItalic(v); applyNodeStyle({ fontStyle: v ? "italic" : "normal" }); } },
+                { label: "—", style: {}, active: false, title: "Restablecer texto",
+                  onClick: () => { setNodeBold(false); setNodeItalic(false); setNodeColor("");
+                    applyNodeStyle({ fontWeight: "normal", fontStyle: "normal", color: "" }); } },
+              ].map((btn) => (
+                <button key={btn.label} onClick={btn.onClick} title={btn.title}
+                  style={{ ...btn.style, width: 36, height: 34, borderRadius: 8, border: `1.5px solid ${btn.active ? "#6965db" : "#e0e0e0"}`,
+                    background: btn.active ? "#6965db" : "#fafafa", color: btn.active ? "#fff" : "#444",
+                    cursor: "pointer", fontSize: 13, fontWeight: 700, transition: "all .12s" }}>
+                  {btn.label}
+                </button>
+              ))}
+              {/* Font size */}
+              <select
+                value={nodeFontSize}
+                onChange={(e) => { setNodeFontSize(e.target.value); applyNodeStyle({ fontSize: e.target.value }); }}
+                title="Tamaño de fuente"
+                style={{ height: 34, borderRadius: 8, border: "1.5px solid #e0e0e0", background: "#fafafa",
+                  color: "#444", fontSize: 12, cursor: "pointer", padding: "0 6px", outline: "none", flex: 1 }}
+              >
+                <option value="">Auto</option>
+                {["11px","12px","13px","14px","16px","18px","20px","24px","28px","32px"].map((s) => (
+                  <option key={s} value={s}>{s.replace("px","")}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Font color */}
+          <div>
+            <div style={{ fontSize: 10, color: "#aaa", fontWeight: 700, marginBottom: 5, letterSpacing: ".05em" }}>COLOR TEXTO</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {["#333333","#ffffff","#6965db","#2563eb","#059669","#d97706","#dc2626","#db2777","#7c3aed","#0891b2","#65a30d"].map((c) => (
+                <button key={c} onClick={() => { setNodeColor(c); applyNodeStyle({ color: c }); }}
+                  title={c}
+                  style={{ width: 22, height: 22, borderRadius: "50%", background: c,
+                    border: `2px solid ${nodeColor === c ? "#333" : c === "#ffffff" ? "#ccc" : "transparent"}`,
+                    cursor: "pointer", padding: 0, outline: "none", transition: "transform .1s, border .1s",
+                    transform: nodeColor === c ? "scale(1.2)" : "scale(1)" }} />
+              ))}
+            </div>
+          </div>
+
+          {/* Background color */}
+          <div>
+            <div style={{ fontSize: 10, color: "#aaa", fontWeight: 700, marginBottom: 5, letterSpacing: ".05em" }}>FONDO DEL NODO</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {["#ffffff","#f0efff","#dbeafe","#d1fae5","#fef3c7","#fee2e2","#fce7f3","#f1f5f9","#1e1e2e","#1e3a2e"].map((c) => (
+                <button key={c} onClick={() => { setNodeBg(c); applyNodeStyle({ background: c }); }}
+                  title={c}
+                  style={{ width: 22, height: 22, borderRadius: "50%", background: c,
+                    border: `2px solid ${nodeBg === c ? "#6965db" : c === "#ffffff" ? "#ddd" : "transparent"}`,
+                    cursor: "pointer", padding: 0, outline: "none", transition: "transform .1s, border .1s",
+                    transform: nodeBg === c ? "scale(1.2)" : "scale(1)" }} />
+              ))}
+            </div>
+          </div>
+
+          {/* Reset all */}
+          <button onClick={() => {
+            setNodeColor(""); setNodeBg(""); setNodeBold(false); setNodeItalic(false); setNodeFontSize("");
+            applyNodeStyle({ color: "", background: "", fontWeight: "normal", fontStyle: "normal", fontSize: "" });
+          }} style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 8, padding: "5px 10px",
+            fontSize: 11, color: "#888", cursor: "pointer", fontWeight: 600, letterSpacing: ".03em" }}>
+            Restablecer todo
+          </button>
+        </div>
+      )}
+
+      {/* Keyboard shortcuts modal */}
+      {showShortcuts && <MindMapShortcuts onClose={() => setShowShortcuts(false)} />}
 
       {/* AI modal */}
       {showAiModal && (

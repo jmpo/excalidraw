@@ -7,6 +7,22 @@ import type {
   LibraryItems,
 } from "@excalidraw/excalidraw/types";
 
+// ─── Recently used ────────────────────────────────────────────────────────────
+
+const RECENT_KEY = "edudraw_recent_lib";
+const MAX_RECENT = 8;
+
+const getRecentIds = (): string[] => {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]"); }
+  catch { return []; }
+};
+
+const addRecentId = (id: string) => {
+  const ids = getRecentIds().filter((i) => i !== id);
+  ids.unshift(id);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(ids.slice(0, MAX_RECENT)));
+};
+
 // ─── Category mapping ─────────────────────────────────────────────────────────
 
 const CATEGORIES: {
@@ -15,36 +31,6 @@ const CATEGORIES: {
   match: (name: string) => boolean;
 }[] = [
   {
-    label: "Figuras humanas",
-    icon: "🧑",
-    match: (n) =>
-      [
-        "stick man",
-        "moustache",
-        "girl",
-        "guy",
-        "grandma",
-        "child",
-        "shrug",
-        "happy",
-        "sad",
-      ].some((k) => n.toLowerCase().includes(k)),
-  },
-  {
-    label: "Matemáticas",
-    icon: "📐",
-    match: (n) =>
-      [
-        "coordinate",
-        "venn",
-        "number line",
-        "sphere",
-        "prism",
-        "parallel",
-        "graph paper",
-      ].some((k) => n.toLowerCase().includes(k)),
-  },
-  {
     label: "Diapositivas",
     icon: "🖥️",
     match: (n) =>
@@ -52,12 +38,55 @@ const CATEGORIES: {
       n.toLowerCase().startsWith("slide"),
   },
   {
+    label: "Figuras humanas",
+    icon: "🧑",
+    match: (n) =>
+      ["stick man", "moustache", "girl", "guy", "grandma", "child",
+       "shrug", "happy", "sad", "despair", "person", "worker",
+       "walking", "sitting", "standing"].some((k) => n.toLowerCase().includes(k)),
+  },
+  {
+    label: "Íconos",
+    icon: "🔷",
+    match: (n) =>
+      ["icon", "arrow", "check", "cross", "star", "heart", "home",
+       "user", "settings", "mail", "phone", "search", "menu",
+       "close", "plus", "minus", "edit", "delete", "save",
+       "download", "upload", "share", "lock", "unlock"].some((k) =>
+        n.toLowerCase().includes(k)),
+  },
+  {
+    label: "Formularios / UI",
+    icon: "🗂️",
+    match: (n) =>
+      ["input", "button", "checkbox", "radio", "select", "form",
+       "dropdown", "drop down", "menu item", "toggle", "slider", "card", "modal", "nav",
+       "header", "footer", "sidebar", "badge", "alert", "toast",
+       "tab", "breadcrumb", "pagination", "table", "list"].some((k) =>
+        n.toLowerCase().includes(k)),
+  },
+  {
+    label: "Emojis",
+    icon: "😀",
+    match: (n) =>
+      ["emoji", "smiling", "laughing", "crying", "angry", "heart eyes",
+       "thumbs", "clap", "fire", "star struck", "face"].some((k) =>
+        n.toLowerCase().includes(k)),
+  },
+  {
+    label: "Matemáticas",
+    icon: "📐",
+    match: (n) =>
+      ["coordinate", "venn", "number line", "sphere", "prism",
+       "parallel", "graph paper"].some((k) => n.toLowerCase().includes(k)),
+  },
+  {
     label: "Negocios",
     icon: "💼",
     match: (n) =>
-      ["canvas", "proposition", "business model"].some((k) =>
-        n.toLowerCase().includes(k),
-      ),
+      ["canvas", "proposition", "business model", "kanban", "roadmap",
+       "timeline", "gantt", "kpi", "okr"].some((k) =>
+        n.toLowerCase().includes(k)),
   },
   {
     label: "Líneas",
@@ -107,8 +136,10 @@ const insertLibraryItem = (
   const idMap = new Map<string, string>();
   item.elements.forEach((el) => idMap.set(el.id, crypto.randomUUID()));
 
-  const newElements = item.elements.map((el) => ({
-    ...el,
+  const newElements = item.elements.map((el) => {
+    const { index: _index, ...rest } = el as any;
+    return {
+    ...rest,
     id: idMap.get(el.id)!,
     x: el.x + dx,
     y: el.y + dy,
@@ -143,7 +174,7 @@ const insertLibraryItem = (
           },
         }
       : {}),
-  }));
+  }; });
 
   excalidrawAPI.updateScene({
     elements: [...existingElements, ...newElements] as any,
@@ -310,14 +341,31 @@ export const LibrarySidebar = ({
   onClose: () => void;
 }) => {
   const [search, setSearch] = useState("");
+  const [recentIds, setRecentIds] = useState<string[]>(getRecentIds);
 
   const handleInsert = useCallback(
-    (item: LibraryItem) => insertLibraryItem(item, excalidrawAPI),
+    (item: LibraryItem) => {
+      insertLibraryItem(item, excalidrawAPI);
+      addRecentId(item.id);
+      setRecentIds(getRecentIds());
+    },
     [excalidrawAPI],
   );
 
+  const recentItems = recentIds
+    .map((id) => libraryItems.find((it) => it.id === id))
+    .filter(Boolean) as LibraryItem[];
+
+  // Normalize items — give a fallback name if empty, keep all
+  const namedItems = libraryItems.map((item) => {
+    const name = (item.name ?? "").trim();
+    return name && name.toLowerCase() !== "sin nombre"
+      ? item
+      : { ...item, name: "Elemento" };
+  });
+
   const filtered = search.trim()
-    ? libraryItems.filter((item) =>
+    ? namedItems.filter((item) =>
         (item.name ?? "").toLowerCase().includes(search.toLowerCase()),
       )
     : null;
@@ -327,7 +375,7 @@ export const LibrarySidebar = ({
   if (!filtered) {
     const map = new Map<string, LibraryItem[]>();
     const order: string[] = [];
-    for (const item of libraryItems) {
+    for (const item of namedItems) {
       const cat = getCategory(item.name ?? "");
       if (!map.has(cat)) {
         map.set(cat, []);
@@ -442,29 +490,34 @@ export const LibrarySidebar = ({
               ))}
             </div>
           )
-        ) : libraryItems.length === 0 ? (
-          <div
-            style={{
-              color: "#aaa",
-              fontSize: 12,
-              textAlign: "center",
-              paddingTop: 24,
-            }}
-          >
+        ) : namedItems.length === 0 ? (
+          <div style={{ color: "#aaa", fontSize: 12, textAlign: "center", paddingTop: 24 }}>
             Cargando...
           </div>
         ) : (
-          // Grouped by category
-          grouped.map((group, i) => (
-            <CategorySection
-              key={group.label}
-              label={group.label}
-              icon={group.icon}
-              items={group.items}
-              onInsert={handleInsert}
-              defaultOpen={i === 0}
-            />
-          ))
+          <>
+            {/* Recientes */}
+            {recentItems.length > 0 && (
+              <CategorySection
+                label="Recientes"
+                icon="🕐"
+                items={recentItems}
+                onInsert={handleInsert}
+                defaultOpen={true}
+              />
+            )}
+            {/* Grouped by category */}
+            {grouped.map((group, i) => (
+              <CategorySection
+                key={group.label}
+                label={group.label}
+                icon={group.icon}
+                items={group.items}
+                onInsert={handleInsert}
+                defaultOpen={i === 0 && recentItems.length === 0}
+              />
+            ))}
+          </>
         )}
       </div>
 
