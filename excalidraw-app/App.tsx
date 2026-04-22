@@ -1968,6 +1968,7 @@ const ExcalidrawAppInner = () => {
   const [sharedDrawingId, setSharedDrawingId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [profileChecked, setProfileChecked] = useState(false);
   const initDone = useRef(false);
 
   // Handle ?share=TOKEN — public read-only view, no auth needed
@@ -2002,6 +2003,7 @@ const ExcalidrawAppInner = () => {
     fetchProfile().then((p) => {
       setProfile(p);
       if (p && !p.onboarding_done) setShowOnboarding(true);
+      setProfileChecked(true);
     });
 
     const channel = supabase
@@ -2050,9 +2052,18 @@ const ExcalidrawAppInner = () => {
     }
   }, [session, guestMode]);
 
-  // Auto-load or create drawing when session is ready
+  // Auto-load or create drawing when session is ready.
+  // Waits for profileChecked so we never flash the dashboard before onboarding.
   useEffect(() => {
     if (!session || currentDrawingId || initDone.current) {
+      return;
+    }
+    // Don't proceed until we know whether onboarding is needed.
+    if (!profileChecked) {
+      return;
+    }
+    // If onboarding is pending, don't initialize — OnboardingForm will render instead.
+    if (showOnboarding) {
       return;
     }
     initDone.current = true;
@@ -2103,7 +2114,7 @@ const ExcalidrawAppInner = () => {
         }
       })
       .finally(() => setInitializing(false));
-  }, [session, currentDrawingId]);
+  }, [session, currentDrawingId, profileChecked, showOnboarding]);
 
   // Public shared drawing — anyone can view, no auth required
   if (sharedDrawingId) {
@@ -2295,6 +2306,18 @@ const ExcalidrawAppInner = () => {
     return <LoginScreen />;
   }
 
+  if (showOnboarding) {
+    return (
+      <OnboardingForm
+        onDone={() => {
+          fetchProfile().then((p) => { setProfile(p); setProfileChecked(true); });
+          initDone.current = false;
+          setShowOnboarding(false);
+        }}
+      />
+    );
+  }
+
   if (initializing) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", color: "#6965db", fontSize: 16, gap: 12 }}>
@@ -2305,17 +2328,6 @@ const ExcalidrawAppInner = () => {
           </div>
         )}
       </div>
-    );
-  }
-
-  if (showOnboarding) {
-    return (
-      <OnboardingForm
-        onDone={() => {
-          fetchProfile().then(setProfile);
-          setShowOnboarding(false);
-        }}
-      />
     );
   }
 
