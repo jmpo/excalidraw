@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { completeOnboarding } from "../data/supabase";
+import { completeOnboarding, skipOnboarding } from "../data/supabase";
 import { useAuth } from "../auth/AuthContext";
 
 const INDUSTRIES = [
@@ -23,7 +23,18 @@ export const OnboardingForm = ({ onDone }: { onDone: () => void }) => {
     use_case: "",
   });
   const [saving, setSaving] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [error, setError] = useState("");
+
+  const handleSkip = async () => {
+    setSkipping(true);
+    try {
+      await skipOnboarding(user!.id);
+      onDone();
+    } catch {
+      setSkipping(false);
+    }
+  };
 
   const set = (k: keyof typeof form, v: string) =>
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -93,11 +104,10 @@ export const OnboardingForm = ({ onDone }: { onDone: () => void }) => {
             Contanos sobre vos
           </h2>
           <p style={{ margin: 0, fontSize: 14, color: "#888", lineHeight: 1.5 }}>
-            Nos ayuda a mejorar EduDraw para tu caso de uso.
-            <br />
-            <strong style={{ color: "#6128ff" }}>
-              Activás 7 días de prueba gratuita al completarlo.
-            </strong>
+            Tu prueba de 7 días ya está activa. Completá tu perfil{" "}
+            <strong style={{ color: "#6128ff" }}>dentro de las primeras 72 hs</strong>{" "}
+            y te extendemos a{" "}
+            <strong style={{ color: "#6128ff" }}>10 días gratis 🎁</strong>
           </p>
         </div>
 
@@ -190,12 +200,31 @@ export const OnboardingForm = ({ onDone }: { onDone: () => void }) => {
               letterSpacing: 0.3,
             }}
           >
-            {saving ? "Activando..." : "Activar 7 días gratis →"}
+            {saving ? "Guardando..." : "Obtener 10 días gratis →"}
           </button>
 
           <p style={{ textAlign: "center", fontSize: 11, color: "#bbb", marginTop: 12 }}>
             Sin tarjeta de crédito. Podés cancelar cuando quieras.
           </p>
+
+          <div style={{ textAlign: "center", marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={handleSkip}
+              disabled={skipping || saving}
+              style={{
+                background: "none",
+                border: "none",
+                fontSize: 12,
+                color: "#bbb",
+                cursor: "pointer",
+                textDecoration: "underline",
+                padding: 0,
+              }}
+            >
+              {skipping ? "Cerrando..." : "No quiero verlo más, omitir"}
+            </button>
+          </div>
         </form>
       </div>
     </div>

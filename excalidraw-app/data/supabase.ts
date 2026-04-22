@@ -274,19 +274,37 @@ export const fetchProfile = async (retries = 4): Promise<Profile | null> => {
   return null;
 };
 
+const ONBOARDING_EXTENSION_DEADLINE_DAYS = 3;
+
+export const skipOnboarding = async (userId: string) => {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ onboarding_done: true })
+    .eq("id", userId);
+  if (error) throw error;
+};
+
 export const completeOnboarding = async (
   userId: string,
   info: { full_name: string; phone: string; industry: string; use_case: string },
 ) => {
-  const trialEnd = new Date(Date.now() + 7 * 86400000).toISOString();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("created_at")
+    .eq("id", userId)
+    .single();
+
+  const createdAt = profile?.created_at ? new Date(profile.created_at).getTime() : Date.now();
+  const daysSinceSignup = (Date.now() - createdAt) / 86400000;
+  const withinDeadline = daysSinceSignup <= ONBOARDING_EXTENSION_DEADLINE_DAYS;
+
+  const extra = withinDeadline
+    ? { plan: "trial" as Plan, trial_ends_at: new Date(createdAt + 10 * 86400000).toISOString() }
+    : {};
+
   const { error } = await supabase
     .from("profiles")
-    .update({
-      ...info,
-      plan: "trial",
-      trial_ends_at: trialEnd,
-      onboarding_done: true,
-    })
+    .update({ ...info, onboarding_done: true, ...extra })
     .eq("id", userId);
   if (error) throw error;
 };

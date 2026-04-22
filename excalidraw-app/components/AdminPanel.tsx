@@ -211,6 +211,17 @@ const fmtDate = (iso: string) =>
     year: "numeric",
   });
 
+const getOnboardingStatus = (u: AdminProfile): { label: string; bg: string; color: string } => {
+  if (!u.onboarding_done) return { label: "⏳ Pendiente", bg: "#f3f4f6", color: "#6b7280" };
+  if (!u.full_name) return { label: "⏭ Omitió", bg: "#fef9c3", color: "#92400e" };
+  const createdMs = new Date(u.created_at).getTime();
+  const gotExtension = u.trial_ends_at
+    ? new Date(u.trial_ends_at).getTime() > createdMs + 8 * 86400000
+    : false;
+  if (gotExtension) return { label: "🎁 +3d obtenidos", bg: "#d1fae5", color: "#065f46" };
+  return { label: "✅ Completó", bg: "#e0f2fe", color: "#0284c7" };
+};
+
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
 const StatCard = ({
@@ -417,7 +428,8 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
     )}
     <div
       style={{
-        minHeight: "100vh",
+        height: "100vh",
+        overflowY: "auto",
         background: "#f4f3ff",
         fontFamily: "Assistant, system-ui, sans-serif",
       }}
@@ -844,7 +856,7 @@ const UserTable = ({
   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
     <thead>
       <tr style={{ borderBottom: "2px solid #f0eeff" }}>
-        {["Nombre / Email", "Plan", "Registrado", "Dibujos", "Vencimiento", "Días restantes"].map((h) => (
+        {["Nombre / Email", "Plan", "Onboarding", "Registrado", "Dibujos", "Vencimiento", "Días restantes"].map((h) => (
           <th key={h} style={{ textAlign: "left", padding: "8px 12px", color: "#888", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
             {h}
           </th>
@@ -867,6 +879,13 @@ const UserTable = ({
           </td>
           <td style={{ padding: "10px 12px" }}>
             <PlanBadge profile={u} />
+          </td>
+          <td style={{ padding: "10px 12px" }}>
+            {(() => { const s = getOnboardingStatus(u); return (
+              <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: s.bg, color: s.color, whiteSpace: "nowrap" }}>
+                {s.label}
+              </span>
+            ); })()}
           </td>
           <td style={{ padding: "10px 12px", color: "#666" }}>{fmtDate(u.created_at)}</td>
           <td style={{ padding: "10px 12px" }}>
