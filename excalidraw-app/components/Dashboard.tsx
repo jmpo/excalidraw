@@ -383,24 +383,19 @@ export const Dashboard = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
 
-  const load = async (isFirstLoad = false) => {
+  const load = async () => {
     setLoading(true);
     try {
       const [d, f] = await Promise.all([fetchDrawings(), fetchFolders()]);
       setDrawings(d);
       setFolders(f);
-      // Onboarding: auto-create first drawing for brand-new users
-      if (isFirstLoad && d.length === 0) {
-        const drawing = await createDrawing("Mi primer dibujo");
-        onOpenDrawing(drawing.id);
-      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    load(true);
+    load();
   }, []);
 
   const effectivePlan = profile ? getEffectivePlan(profile) : "free";
