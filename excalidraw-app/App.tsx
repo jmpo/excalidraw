@@ -2281,8 +2281,11 @@ const ExcalidrawAppInner = () => {
       <OnboardingForm
         onDone={() => {
           fetchProfile().then((p) => { setProfile(p); setProfileChecked(true); });
-          initDone.current = false;
           setShowOnboarding(false);
+          setCurrentDrawingId(null);
+          navigate("/?dashboard");
+          setView("dashboard");
+          initDone.current = true;
         }}
       />
     );
