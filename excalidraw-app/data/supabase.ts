@@ -89,13 +89,14 @@ export const getSession = () => supabase.auth.getSession();
 // ── Drawings CRUD ─────────────────────────────────────────────────────────────
 
 export const fetchDrawings = async (): Promise<Drawing[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
   const { data, error } = await supabase
     .from("drawings")
     .select("*")
+    .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
   return data as Drawing[];
 };
 
