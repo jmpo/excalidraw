@@ -3,8 +3,11 @@ import { useEffect, useRef, useState } from "react";
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 640);
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth <= 640);
-    window.addEventListener("resize", handler);
+    const handler = () => {
+      const next = window.innerWidth <= 640;
+      setIsMobile((prev) => (prev === next ? prev : next));
+    };
+    window.addEventListener("resize", handler, { passive: true });
     return () => window.removeEventListener("resize", handler);
   }, []);
   return isMobile;
@@ -351,9 +354,14 @@ export const MindMapEditor = ({
     me.install(nodeMenu);
     meRef.current = me;
 
-    // Sync zoom percentage to state
+    // Sync zoom percentage to state — debounced so pinch-zoom on mobile doesn't flood re-renders
+    let scaleTimer: ReturnType<typeof setTimeout> | null = null;
     me.bus.addListener("scale", (val: number) => {
-      setZoomPct(Math.round(val * 100));
+      if (scaleTimer) clearTimeout(scaleTimer);
+      scaleTimer = setTimeout(() => {
+        scaleTimer = null;
+        setZoomPct(Math.round(val * 100));
+      }, 60);
     });
 
     if (isGuest) {
@@ -441,60 +449,58 @@ export const MindMapEditor = ({
 
     // When one side is empty, dragend to the empty side flips node direction
     const mapEl = containerRef.current?.querySelector(".map-container");
+
+    const getRootCenterX = () => {
+      const rootTpc = mapEl?.querySelector("me-root me-tpc") as HTMLElement | null;
+      if (!rootTpc) return null;
+      const r = rootTpc.getBoundingClientRect();
+      return r.left + r.width / 2;
+    };
+
+    const onDragStart = (e: Event) => {
+      const tpc = (e.target as Element).closest("me-tpc") as HTMLElement | null;
+      draggingTopNodeId = tpc?.dataset?.nodeid?.replace(/^me/, "") ?? null;
+      if (draggingTopNodeId && activeLayoutRef.current === 0) {
+        const cx = getRootCenterX();
+        if (cx != null) {
+          const de = e as DragEvent;
+          setDragSide((de.clientX ?? 0) < cx ? "left" : "right");
+        }
+      }
+    };
+
+    const onDragOver = (e: Event) => {
+      if (!draggingTopNodeId || activeLayoutRef.current !== 0) return;
+      const cx = getRootCenterX();
+      if (cx == null) return;
+      setDragSide((e as DragEvent).clientX < cx ? "left" : "right");
+    };
+
+    const onDragEnd = (e: DragEvent) => {
+      setDragSide(null);
+      const id = draggingTopNodeId;
+      draggingTopNodeId = null;
+      if (!id || activeLayoutRef.current !== 0 || operationJustFired) return;
+      const cx = getRootCenterX();
+      if (cx == null) return;
+      const meInst = meRef.current as any;
+      const child = (meInst?.nodeData?.children ?? []).find((c: any) => c.id === id);
+      if (!child) return;
+      const mouseOnLeft = e.clientX < cx;
+      const nodeOnLeft = child.direction === 0;
+      if (mouseOnLeft !== nodeOnLeft) {
+        const data = JSON.parse(JSON.stringify(meInst.getData())) as any;
+        data.direction = 2;
+        const topChild = data.nodeData.children.find((c: any) => c.id === id);
+        if (topChild) {
+          topChild.direction = mouseOnLeft ? 0 : 1;
+          meInst.init(data);
+          scheduleSave();
+        }
+      }
+    };
+
     if (mapEl) {
-      const getRootCenterX = () => {
-        const rootTpc = mapEl.querySelector("me-root me-tpc") as HTMLElement | null;
-        if (!rootTpc) return null;
-        const r = rootTpc.getBoundingClientRect();
-        return r.left + r.width / 2;
-      };
-
-      const onDragStart = (e: Event) => {
-        const tpc = (e.target as Element).closest("me-tpc") as HTMLElement | null;
-        draggingTopNodeId = tpc?.dataset?.nodeid?.replace(/^me/, "") ?? null;
-        if (draggingTopNodeId && activeLayoutRef.current === 0) {
-          // Show drop zone overlay immediately
-          const cx = getRootCenterX();
-          if (cx != null) {
-            const de = e as DragEvent;
-            setDragSide((de.clientX ?? 0) < cx ? "left" : "right");
-          }
-        }
-      };
-
-      const onDragOver = (e: Event) => {
-        if (!draggingTopNodeId || activeLayoutRef.current !== 0) return;
-        const cx = getRootCenterX();
-        if (cx == null) return;
-        const side = (e as DragEvent).clientX < cx ? "left" : "right";
-        setDragSide(side);
-      };
-
-      const onDragEnd = (e: DragEvent) => {
-        setDragSide(null);
-        const id = draggingTopNodeId;
-        draggingTopNodeId = null;
-        if (!id || activeLayoutRef.current !== 0 || operationJustFired) return;
-        // No valid drop target was found — check if mouse ended on the opposite side
-        const cx = getRootCenterX();
-        if (cx == null) return;
-        const meInst = meRef.current as any;
-        const child = (meInst?.nodeData?.children ?? []).find((c: any) => c.id === id);
-        if (!child) return;
-        const mouseOnLeft = e.clientX < cx;
-        const nodeOnLeft = child.direction === 0;
-        if (mouseOnLeft !== nodeOnLeft) {
-          const data = JSON.parse(JSON.stringify(meInst.getData())) as any;
-          data.direction = 2;
-          const topChild = data.nodeData.children.find((c: any) => c.id === id);
-          if (topChild) {
-            topChild.direction = mouseOnLeft ? 0 : 1;
-            meInst.init(data);
-            scheduleSave();
-          }
-        }
-      };
-
       mapEl.addEventListener("dragstart", onDragStart);
       mapEl.addEventListener("dragover", onDragOver);
       mapEl.addEventListener("dragend", onDragEnd as EventListener);
@@ -515,7 +521,16 @@ export const MindMapEditor = ({
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      const el = containerRef.current?.querySelector(".map-container");
+      if (el) {
+        el.removeEventListener("dragstart", onDragStart as any);
+        el.removeEventListener("dragover", onDragOver as any);
+        el.removeEventListener("dragend", onDragEnd as any);
+      }
+    };
   }, [drawingId]);
 
   const applyTheme = (idx: number) => {
@@ -568,12 +583,20 @@ export const MindMapEditor = ({
       });
     };
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new MutationObserver(() => {
-      hideMenuFields();
+      if (debounceTimer) return;
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        hideMenuFields();
+      }, 80);
     });
     observer.observe(document.body, { childList: true, subtree: true });
     hideMenuFields();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (debounceTimer) clearTimeout(debounceTimer);
+    };
   }, []);
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────

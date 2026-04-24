@@ -119,6 +119,7 @@ export const SHAPES = [
 export const getToolbarTools = (app: AppClassProperties) => {
   return app.state.preferredSelectionTool.type === "lasso"
     ? ([
+        SHAPES[0], // hand tool — always keep regardless of selection mode
         {
           value: "lasso",
           icon: SelectionIcon,
@@ -127,7 +128,7 @@ export const getToolbarTools = (app: AppClassProperties) => {
           fillable: true,
           toolbar: true,
         },
-        ...SHAPES.slice(1),
+        ...SHAPES.slice(2), // skip hand (0) and selection (1), add rest from rectangle on
       ] as const)
     : SHAPES;
 };
