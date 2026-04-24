@@ -190,13 +190,26 @@ const UserDetailModal = ({
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, maxHeight: 220, overflowY: "auto" }}>
                 {drawings.map((d) => (
-                  <div key={d.id} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #ede9fe", background: "#fafafa" }}>
-                    <div style={{ height: 70, background: "#f3f0ff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                  <div
+                    key={d.id}
+                    onClick={() => window.open(`/?d=${d.id}`, "_blank")}
+                    title="Abrir dibujo en nueva pestaña"
+                    style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #ede9fe", background: "#fafafa", cursor: "pointer", transition: "box-shadow .15s" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 2px 12px rgba(97,40,255,.18)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}
+                  >
+                    <div style={{ height: 70, background: "#f3f0ff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
                       {d.thumbnail ? (
                         <img src={d.thumbnail} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
                         <span style={{ fontSize: 22 }}>{d.type === "mindmap" ? "🧠" : "📐"}</span>
                       )}
+                      <div style={{ position: "absolute", inset: 0, background: "rgba(97,40,255,0)", display: "flex", alignItems: "center", justifyContent: "center", transition: "background .15s" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(97,40,255,0.12)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(97,40,255,0)")}
+                      >
+                        <span style={{ fontSize: 18, opacity: 0.8 }}>↗</span>
+                      </div>
                     </div>
                     <div style={{ padding: "5px 7px" }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name || "Sin título"}</div>
