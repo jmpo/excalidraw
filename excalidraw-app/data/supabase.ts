@@ -288,18 +288,28 @@ export const completeOnboarding = async (
   userId: string,
   info: { full_name: string; phone: string; industry: string; use_case: string },
 ) => {
-  const { data: profile } = await supabase
+  const { data: profile, error: fetchError } = await supabase
     .from("profiles")
-    .select("created_at")
+    .select("created_at, trial_ends_at")
     .eq("id", userId)
     .single();
 
-  const createdAt = profile?.created_at ? new Date(profile.created_at).getTime() : Date.now();
+  // If we can't read the profile we can't safely compute the bonus — fail loudly
+  // so the admin panel shows the anomaly (onboarding_done stays false).
+  if (fetchError || !profile?.created_at) throw fetchError ?? new Error("profile_not_found");
+
+  const createdAt = new Date(profile.created_at).getTime();
   const daysSinceSignup = (Date.now() - createdAt) / 86400000;
   const withinDeadline = daysSinceSignup <= ONBOARDING_EXTENSION_DEADLINE_DAYS;
 
-  const extra = withinDeadline
-    ? { plan: "trial" as Plan, trial_ends_at: new Date(createdAt + 10 * 86400000).toISOString() }
+  // Only extend if the bonus date is actually greater than the current trial_ends_at.
+  // This prevents overwriting a manually-extended trial with a shorter date.
+  const bonusEndsAt = new Date(createdAt + 10 * 86400000);
+  const currentEndsAt = profile.trial_ends_at ? new Date(profile.trial_ends_at) : null;
+  const shouldExtend = withinDeadline && (!currentEndsAt || bonusEndsAt > currentEndsAt);
+
+  const extra = shouldExtend
+    ? { plan: "trial" as Plan, trial_ends_at: bonusEndsAt.toISOString() }
     : {};
 
   const { error } = await supabase

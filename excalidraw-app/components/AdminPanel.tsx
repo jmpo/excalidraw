@@ -126,7 +126,7 @@ const UserDetailModal = ({
                   background: effectivePlan === p ? "#6128ff" : "#f0eeff",
                   color: effectivePlan === p ? "#fff" : "#6128ff",
                 }}>
-                {p.charAt(0).toUpperCase() + p.slice(1)}
+                {p === "free" ? "Expirado" : p.charAt(0).toUpperCase() + p.slice(1)}
               </button>
             ))}
           </div>
@@ -136,7 +136,7 @@ const UserDetailModal = ({
             Extender trial:
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {[7, 14, 30].map((d) => (
+            {[3, 7, 14, 30].map((d) => (
               <button key={d} onClick={() => extendTrial(d)} disabled={saving}
                 style={{
                   padding: "5px 14px", borderRadius: 7, border: "1.5px solid #e0e0f0",
@@ -577,7 +577,7 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
                 {/* Plan breakdown */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 28 }}>
                   {[
-                    { plan: "free",   label: "Free",   icon: "🆓", bg: "#f3f4f6", color: "#6b7280" },
+                    { plan: "free",   label: "Expirado", icon: "⏰", bg: "#f3f4f6", color: "#6b7280" },
                     { plan: "trial",  label: "Trial",  icon: "🚀", bg: "#fef3c7", color: "#92400e" },
                     { plan: "pro",    label: "Pro",    icon: "⭐", bg: "#d1fae5", color: "#065f46" },
                     { plan: "paused", label: "Paused", icon: "⏸", bg: "#fee2e2", color: "#991b1b" },
@@ -784,7 +784,7 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
                         style={{ padding: "5px 12px", borderRadius: 7, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
                           background: planFilter === f ? "#6128ff" : "#f0eeff",
                           color: planFilter === f ? "#fff" : "#6128ff" }}>
-                        {f === "all" ? "Todos" : f.charAt(0).toUpperCase() + f.slice(1)}
+                        {f === "all" ? "Todos" : f === "free" ? "Expirado" : f.charAt(0).toUpperCase() + f.slice(1)}
                       </button>
                     ))}
                   </div>

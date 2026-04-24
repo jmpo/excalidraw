@@ -664,7 +664,7 @@ export const Dashboard = ({
                 ? { background: "#fef3c7", color: "#92400e" }
                 : { background: "#f3f4f6", color: "#6b7280" }),
             }}>
-              {accountPaused ? "⏸ Pausado" : effectivePlan === "pro" ? "⭐ Pro" : effectivePlan === "trial" ? `🚀 Trial · ${daysLeft}d` : "🆓 Free"}
+              {accountPaused ? "⏸ Pausado" : effectivePlan === "pro" ? "⭐ Pro" : effectivePlan === "trial" ? `🚀 Trial · ${daysLeft}d` : "⏰ Expirado"}
             </span>
           )}
           <button
@@ -1056,7 +1056,7 @@ export const Dashboard = ({
             {/* Drawing limit counter */}
             {effectivePlan !== "pro" && (
               <span style={{ fontSize: 12, color: drawings.length >= drawingLimit ? "#e53e3e" : "#999", marginLeft: "auto" }}>
-                {drawings.length}/{drawingLimit}{effectivePlan === "trial" ? " (trial)" : " (free)"}
+                {drawings.length}/{drawingLimit}{effectivePlan === "trial" ? " (trial)" : " (expirado)"}
               </span>
             )}
           </div>
