@@ -52,7 +52,7 @@ export type Folder = {
   created_at: string;
 };
 
-export type DrawingType = "canvas" | "mindmap";
+export type DrawingType = "canvas" | "mindmap" | "mermaid";
 
 export type Drawing = {
   id: string;

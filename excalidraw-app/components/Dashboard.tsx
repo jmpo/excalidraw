@@ -73,6 +73,12 @@ const TypePicker = ({
       label: "Mapa mental",
       desc: "Organizar ideas en nodos y ramas",
     },
+    {
+      type: "mermaid",
+      icon: "📊",
+      label: "Diagrama",
+      desc: "Flujos, secuencias, ER, Gantt con Mermaid",
+    },
   ];
 
   return (
@@ -425,8 +431,23 @@ export const Dashboard = ({
     setShowTypePicker(false);
     if (type === "mindmap") {
       handleCreateMindMap();
+    } else if (type === "mermaid") {
+      handleCreateMermaid();
     } else {
       setShowTemplatePicker(true);
+    }
+  };
+
+  const handleCreateMermaid = async () => {
+    try {
+      const drawing = await createDrawing("Sin título", "mermaid");
+      if (activeFolderId && activeFolderId !== "all") {
+        await moveDrawingToFolder(drawing.id, activeFolderId);
+      }
+      onOpenDrawing(drawing.id);
+    } catch (err: any) {
+      if (err instanceof DrawingLimitError) { setShowUpgradeModal(true); return; }
+      alert("Error al crear el diagrama.\n\n" + (err?.message ?? String(err)));
     }
   };
 
@@ -1104,15 +1125,15 @@ export const Dashboard = ({
                         {selectedIds.has(drawing.id) && <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>✓</span>}
                       </div>
                     )}
-                    {drawing.type === "mindmap" && (
+                    {(drawing.type === "mindmap" || drawing.type === "mermaid") && (
                       <div style={{
                         position: "absolute", top: 8, left: 8,
-                        background: "#6965db", color: "#fff",
+                        background: drawing.type === "mermaid" ? "#0891b2" : "#6965db", color: "#fff",
                         borderRadius: 6, padding: "2px 7px",
                         fontSize: 10, fontWeight: 700, zIndex: 2,
                         letterSpacing: 0.3,
                       }}>
-                        Mapa mental
+                        {drawing.type === "mermaid" ? "Diagrama" : "Mapa mental"}
                       </div>
                     )}
                     {drawing.thumbnail ? (
@@ -1121,6 +1142,8 @@ export const Dashboard = ({
                       <div className="dashboard-card-placeholder">
                         {drawing.type === "mindmap" ? (
                           <span style={{ fontSize: 36 }}>🧠</span>
+                        ) : drawing.type === "mermaid" ? (
+                          <span style={{ fontSize: 36 }}>📊</span>
                         ) : (
                           <svg viewBox="0 0 24 24" fill="none" width="32" height="32">
                             <rect x="3" y="3" width="18" height="18" rx="2" stroke="#c8c6e8" strokeWidth="1.5" />

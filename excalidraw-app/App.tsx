@@ -97,11 +97,16 @@ import type { DrawingType, Profile } from "./data/supabase";
 import { trackGuestSessionStart, trackGuestActivity, trackGuestToolSwitch } from "./data/guestTracking";
 import { printImageAsPdf } from "./utils/pdfExport";
 import { EduTemplatesModal } from "./components/EduTemplates";
+import { ClassTimer } from "./components/ClassTimer";
+import { RuletaSpinner } from "./components/RuletaSpinner";
 const Dashboard = lazy(() =>
   import("./components/Dashboard").then((m) => ({ default: m.Dashboard })),
 );
 const MindMapEditor = lazy(() =>
   import("./components/MindMapEditor").then((m) => ({ default: m.MindMapEditor })),
+);
+const MermaidEditor = lazy(() =>
+  import("./components/MermaidEditor").then((m) => ({ default: m.MermaidEditor })),
 );
 import { AdminPanel } from "./components/AdminPanel";
 import { OnboardingForm } from "./components/OnboardingForm";
@@ -573,6 +578,8 @@ const ExcalidrawWrapper = ({
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [showAiWhiteboardModal, setShowAiWhiteboardModal] = useState(false);
   const [showEduTemplates, setShowEduTemplates] = useState(false);
+  const [showTimer, setShowTimer] = useState(false);
+  const [showRuleta, setShowRuleta] = useState(false);
   const [aiWbTab, setAiWbTab] = useState<"text" | "pdf">("text");
   const [aiWbText, setAiWbText] = useState("");
   const [aiWbPdfFile, setAiWbPdfFile] = useState<File | null>(null);
@@ -1339,6 +1346,16 @@ const ExcalidrawWrapper = ({
                 ✨ Generar con IA
               </button>
               <button
+                style={{ padding: "6px 12px", background: showTimer ? "#ff6b35" : "#fff", color: showTimer ? "#fff" : "#333", border: "1.5px solid #ccc", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer", marginRight: 6 }}
+                onClick={() => setShowTimer((v) => !v)}
+                title="Temporizador de clase"
+              >⏱️ Timer</button>
+              <button
+                style={{ padding: "6px 12px", background: "#fff", color: "#333", border: "1.5px solid #ccc", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer", marginRight: 6 }}
+                onClick={() => setShowRuleta(true)}
+                title="Ruleta de participantes"
+              >🎡 Ruleta</button>
+              <button
                 style={{
                   padding: "6px 12px",
                   background: "#fff",
@@ -1678,6 +1695,9 @@ const ExcalidrawWrapper = ({
     )}
 
     {/* Edu Templates modal */}
+    {showTimer && <ClassTimer onClose={() => setShowTimer(false)} />}
+    {showRuleta && <RuletaSpinner onClose={() => setShowRuleta(false)} />}
+
     {showEduTemplates && excalidrawAPI && (
       <EduTemplatesModal
         excalidrawAPI={excalidrawAPI}
@@ -2386,6 +2406,14 @@ const ExcalidrawAppInner = () => {
     );
   }
 
+  if (currentDrawingType === "mermaid") {
+    return (
+      <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#6965db", fontSize: 16 }}>Cargando editor…</div>}>
+        <MermaidEditorLoader drawingId={currentDrawingId!} onBack={goToDashboard} />
+      </Suspense>
+    );
+  }
+
   return (
     <Provider store={appJotaiStore}>
       <ExcalidrawAPIProvider>
@@ -2395,6 +2423,25 @@ const ExcalidrawAppInner = () => {
         />
       </ExcalidrawAPIProvider>
     </Provider>
+  );
+};
+
+const MermaidEditorLoader = ({ drawingId, onBack }: { drawingId: string; onBack: () => void }) => {
+  const [initialContent, setInitialContent] = useState<string | undefined>();
+  useEffect(() => {
+    fetchDrawing(drawingId).then((d) => {
+      setInitialContent((d?.content as any)?.mermaidCode ?? undefined);
+    }).catch(() => {});
+  }, [drawingId]);
+
+  const handleSave = useCallback(async (code: string) => {
+    await saveDrawing(drawingId, { mermaidCode: code } as any);
+  }, [drawingId]);
+
+  return (
+    <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#6965db" }}>Cargando editor…</div>}>
+      <MermaidEditor drawingId={drawingId} initialContent={initialContent} onBack={onBack} onSave={handleSave} />
+    </Suspense>
   );
 };
 
