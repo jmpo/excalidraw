@@ -5,10 +5,12 @@ import {
   fetchAllProfiles,
   adminSetPlan,
   adminExtendTrial,
+  adminFetchUserDrawings,
   getEffectivePlan,
   isTrialActive,
   trialDaysLeft,
 } from "../data/supabase";
+import type { Drawing } from "../data/supabase";
 import { useAuth } from "../auth/AuthContext";
 import type { AdminProfile, Plan } from "../data/supabase";
 
@@ -53,6 +55,17 @@ const UserDetailModal = ({
 }) => {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [drawings, setDrawings] = useState<Drawing[] | null>(null);
+  const [loadingDrawings, setLoadingDrawings] = useState(false);
+
+  const loadDrawings = async () => {
+    setLoadingDrawings(true);
+    try {
+      const d = await adminFetchUserDrawings(user.id);
+      setDrawings(d);
+    } catch { setDrawings([]); }
+    finally { setLoadingDrawings(false); }
+  };
 
   const setPlan = async (plan: Plan) => {
     setSaving(true);
@@ -153,6 +166,48 @@ const UserDetailModal = ({
             {msg}
           </div>
         )}
+
+        {/* Drawings section */}
+        <div style={{ borderTop: "1px solid #f0eeff", paddingTop: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#999", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Dibujos del usuario
+            </div>
+            {drawings === null && (
+              <button
+                onClick={loadDrawings}
+                disabled={loadingDrawings}
+                style={{ fontSize: 11, fontWeight: 700, color: "#6128ff", background: "#f0eeff", border: "none", borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}
+              >
+                {loadingDrawings ? "Cargando..." : "Ver dibujos →"}
+              </button>
+            )}
+          </div>
+
+          {drawings !== null && (
+            drawings.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#bbb", textAlign: "center", padding: "12px 0" }}>Sin dibujos</div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, maxHeight: 220, overflowY: "auto" }}>
+                {drawings.map((d) => (
+                  <div key={d.id} style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #ede9fe", background: "#fafafa" }}>
+                    <div style={{ height: 70, background: "#f3f0ff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                      {d.thumbnail ? (
+                        <img src={d.thumbnail} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <span style={{ fontSize: 22 }}>{d.type === "mindmap" ? "🧠" : "📐"}</span>
+                      )}
+                    </div>
+                    <div style={{ padding: "5px 7px" }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name || "Sin título"}</div>
+                      <div style={{ fontSize: 10, color: "#aaa" }}>{new Date(d.updated_at).toLocaleDateString("es")}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
       </div>
     </div>
   );

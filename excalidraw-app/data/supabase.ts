@@ -361,6 +361,16 @@ export const adminSetPlan = async (
   if (error) throw error;
 };
 
+export const adminFetchUserDrawings = async (userId: string): Promise<Drawing[]> => {
+  const { data, error } = await supabase
+    .from("drawings")
+    .select("id, name, type, thumbnail, updated_at")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  return data as Drawing[];
+};
+
 export const adminExtendTrial = async (userId: string, days: number) => {
   const { data } = await supabase
     .from("profiles")
