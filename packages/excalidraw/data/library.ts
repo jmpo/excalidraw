@@ -15,6 +15,7 @@ import {
   toValidURL,
   Queue,
   Emitter,
+  randomId,
 } from "@excalidraw/common";
 
 import { hashElementsVersion, hashString } from "@excalidraw/element";
@@ -464,6 +465,9 @@ export const distributeLibraryItemsOnSquareGrid = (
     const { minX, minY, width, height } = getCommonBoundingBox(item.elements);
     const offsetCenterX = (maxWidthCurrCol - width) / 2;
     const offsetCenterY = (maxHeightCurrRow - height) / 2;
+    // Each library item gets its own groupId mapping so that inserting the
+    // same item multiple times doesn't couple the copies into the same group.
+    const itemGroupIdMap = new Map<string, string>();
     resElements.push(
       // eslint-disable-next-line no-loop-func
       ...item.elements.map((element) => ({
@@ -484,6 +488,12 @@ export const distributeLibraryItemsOnSquareGrid = (
           offsetCenterY -
           // subtract minY so that given item starts at 0 coord
           minY,
+        groupIds: element.groupIds.map((gid) => {
+          if (!itemGroupIdMap.has(gid)) {
+            itemGroupIdMap.set(gid, randomId());
+          }
+          return itemGroupIdMap.get(gid)!;
+        }),
       })),
     );
     colOffsetX += maxWidthCurrCol + PADDING;

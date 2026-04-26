@@ -136,6 +136,14 @@ const insertLibraryItem = (
   const idMap = new Map<string, string>();
   item.elements.forEach((el) => idMap.set(el.id, crypto.randomUUID()));
 
+  // Each insertion gets its own groupId mapping so that inserting the same
+  // item multiple times doesn't couple the copies into the same group.
+  const groupIdMap = new Map<string, string>();
+  const remapGroupId = (gid: string) => {
+    if (!groupIdMap.has(gid)) groupIdMap.set(gid, crypto.randomUUID());
+    return groupIdMap.get(gid)!;
+  };
+
   const newElements = item.elements.map((el) => {
     const { index: _index, ...rest } = el as any;
     return {
@@ -143,6 +151,7 @@ const insertLibraryItem = (
     id: idMap.get(el.id)!,
     x: el.x + dx,
     y: el.y + dy,
+    groupIds: ((el as any).groupIds ?? []).map(remapGroupId),
     boundElements:
       el.boundElements?.map((be) => ({
         ...be,
