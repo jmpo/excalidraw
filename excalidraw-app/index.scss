@@ -164,28 +164,6 @@ me-tpc {
   cursor: pointer !important;
 }
 
-// Pan mode: disable all node interactions so every drag pans the canvas
-.me-pan-mode .map-container,
-.me-pan-mode me-tpc,
-.me-pan-mode me-wrapper,
-.me-pan-mode me-parent,
-.me-pan-mode me-root {
-  cursor: grab !important;
-}
-.me-pan-mode .map-container:active,
-.me-pan-mode me-tpc:active {
-  cursor: grabbing !important;
-}
-.me-pan-mode .map-container .selection-area {
-  display: none !important;
-}
-.me-pan-mode me-tpc,
-.me-pan-mode me-wrapper,
-.me-pan-mode me-parent,
-.me-pan-mode me-root {
-  pointer-events: none !important;
-  user-select: none !important;
-}
 
 // ── Mind Elixir drag & drop visual improvements ────────────────────────────────
 

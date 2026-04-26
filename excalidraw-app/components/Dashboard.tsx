@@ -73,12 +73,6 @@ const TypePicker = ({
       label: "Mapa mental",
       desc: "Organizar ideas en nodos y ramas",
     },
-    {
-      type: "mermaid",
-      icon: "📊",
-      label: "Diagrama",
-      desc: "Flujos, secuencias, ER, Gantt con Mermaid",
-    },
   ];
 
   return (

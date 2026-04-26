@@ -14,7 +14,7 @@ const SHORTCUTS = [
   {
     section: "Canvas",
     items: [
-      { keys: ["H"], desc: "Activar / desactivar modo mano" },
+      { keys: ["Arrastrar fondo"], desc: "Mover / navegar el canvas" },
       { keys: ["L"], desc: "Activar / desactivar puntero láser" },
       { keys: ["Ctrl", "Rueda"], desc: "Zoom in / out" },
       { keys: ["Ctrl", "Z"], desc: "Deshacer" },
@@ -133,7 +133,7 @@ export const MindMapShortcuts = ({ onClose }: Props) => {
           display: "flex", alignItems: "center", gap: 8,
         }}>
           <span style={{ fontSize: 16 }}>💡</span>
-          Hacé clic en cualquier nodo para ver opciones de estilo a la derecha.
+          Doble clic en cualquier nodo para editar · Arrastrá el fondo para mover el canvas · Hacé clic derecho para más opciones.
         </div>
       </div>
     </div>

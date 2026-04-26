@@ -60,7 +60,7 @@ export type Drawing = {
   folder_id: string | null;
   name: string;
   type: DrawingType;
-  content: { elements: unknown[]; appState: Record<string, unknown> };
+  content: { elements: unknown[]; appState: Record<string, unknown>; files?: Record<string, unknown> };
   thumbnail: string | null;
   created_at: string;
   updated_at: string;

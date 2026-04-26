@@ -445,6 +445,7 @@ const ExcalidrawWrapper = ({
     id: string;
     elements: readonly OrderedExcalidrawElement[];
     appState: AppState;
+    files: BinaryFiles;
   } | null>(null);
 
   const supabaseSave = useRef(
@@ -453,12 +454,24 @@ const ExcalidrawWrapper = ({
         id: string,
         elements: readonly OrderedExcalidrawElement[],
         appState: AppState,
+        files: BinaryFiles,
       ) => {
         // collaborators es un Map — no serializable, se excluye del guardado
         const { collaborators: _c, ...serializableAppState } = appState;
+        // Only persist files referenced by image elements in this drawing
+        const referencedFileIds = new Set(
+          elements
+            .filter((el) => isInitializedImageElement(el))
+            .map((el) => (el as any).fileId as string),
+        );
+        const filesToSave: Record<string, unknown> = {};
+        Object.entries(files).forEach(([fid, fdata]) => {
+          if (referencedFileIds.has(fid)) filesToSave[fid] = fdata;
+        });
         saveDrawing(id, {
           elements: elements as unknown[],
           appState: serializableAppState as unknown as Record<string, unknown>,
+          files: filesToSave,
         })
           .then(() => {
             pendingSaveRef.current = null;
@@ -477,11 +490,21 @@ const ExcalidrawWrapper = ({
     return () => {
       supabaseSave.flush?.();
       if (pendingSaveRef.current) {
-        const { id, elements, appState } = pendingSaveRef.current;
+        const { id, elements, appState, files } = pendingSaveRef.current;
         const { collaborators: _c, ...serializableAppState } = appState;
+        const referencedFileIds = new Set(
+          elements
+            .filter((el) => isInitializedImageElement(el))
+            .map((el) => (el as any).fileId as string),
+        );
+        const filesToSave: Record<string, unknown> = {};
+        Object.entries(files).forEach(([fid, fdata]) => {
+          if (referencedFileIds.has(fid)) filesToSave[fid] = fdata;
+        });
         saveDrawing(id, {
           elements: elements as unknown[],
           appState: serializableAppState as unknown as Record<string, unknown>,
+          files: filesToSave,
         }).catch(console.error);
         pendingSaveRef.current = null;
       }
@@ -908,6 +931,7 @@ const ExcalidrawWrapper = ({
         // Dibujo encontrado en Supabase — usar su contenido (puede estar vacío)
         const elements = (supabaseDrawing.content?.elements ?? []) as Parameters<typeof restoreElements>[0];
         const appState = (supabaseDrawing.content?.appState ?? {}) as Parameters<typeof restoreAppState>[0];
+        const files = (supabaseDrawing.content?.files ?? {}) as BinaryFiles;
         initialStatePromiseRef.current.promise.resolve({
           elements: restoreElements(elements, null, {
             repairBindings: true,
@@ -917,6 +941,7 @@ const ExcalidrawWrapper = ({
             { ...appState, collaborators: new Map() },
             null,
           ),
+          files,
         });
         return;
       }
@@ -1083,8 +1108,8 @@ const ExcalidrawWrapper = ({
     }
 
     if (drawingId !== "__guest__") {
-      pendingSaveRef.current = { id: drawingId, elements, appState };
-      supabaseSave(drawingId, elements, appState);
+      pendingSaveRef.current = { id: drawingId, elements, appState, files };
+      supabaseSave(drawingId, elements, appState, files);
       thumbnailSave(drawingId, elements, appState, files);
     } else {
       const activeCount = elements.filter((el) => !el.isDeleted).length;

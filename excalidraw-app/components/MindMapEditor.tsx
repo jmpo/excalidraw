@@ -292,7 +292,6 @@ export const MindMapEditor = ({
 
   const [activeLayout, setActiveLayout] = useState(0); // 0=SIDE 1=RIGHT 2=LEFT
   const [zoomPct, setZoomPct] = useState(100);
-  const [panMode, setPanMode] = useState(false);
   const [dragSide, setDragSide] = useState<"left" | "right" | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiTab, setAiTab] = useState<"text" | "pdf">("text");
@@ -349,6 +348,7 @@ export const MindMapEditor = ({
       allowUndo: true,
       theme: THEME_DEFAULT,
       newTopicName: "Nuevo nodo",
+      mouseSelectionButton: 2, // left-drag pans canvas; right-drag for multi-select
     });
 
     me.install(nodeMenu);
@@ -506,24 +506,8 @@ export const MindMapEditor = ({
       mapEl.addEventListener("dragend", onDragEnd as EventListener);
     }
 
-    // Keyboard shortcut H = toggle pan mode
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "h" || e.key === "H") {
-        const tag = (e.target as HTMLElement).tagName;
-        if (tag !== "INPUT" && tag !== "TEXTAREA") {
-          setPanMode(v => {
-            const next = !v;
-            (meRef.current as any).mouseSelectionButton = next ? 2 : 0;
-            if (next) { laserModeRef.current = false; setLaserMode(false); }
-            return next;
-          });
-        }
-      }
-    };
-    window.addEventListener("keydown", onKey);
-
     return () => {
-      window.removeEventListener("keydown", onKey);
+      // (no keydown listeners to clean up here)
       const el = containerRef.current?.querySelector(".map-container");
       if (el) {
         el.removeEventListener("dragstart", onDragStart as any);
@@ -608,7 +592,6 @@ export const MindMapEditor = ({
         const next = !laserModeRef.current;
         laserModeRef.current = next;
         setLaserMode(next);
-        if (next) { setPanMode(false); (meRef.current as any).mouseSelectionButton = 0; }
       }
       if (e.key === "?") {
         setShowShortcuts((v) => !v);
@@ -664,11 +647,6 @@ export const MindMapEditor = ({
     const next = !laserModeRef.current;
     laserModeRef.current = next;
     setLaserMode(next);
-    // Laser and pan are mutually exclusive
-    if (next) {
-      setPanMode(false);
-      (meRef.current as any).mouseSelectionButton = 0;
-    }
   };
 
   // Layout switching — methods confirmed in mind-elixir type definitions
@@ -955,23 +933,31 @@ export const MindMapEditor = ({
       {showTips && (
         <div style={{
           background: "#f0efff", borderBottom: "1px solid #dddaff",
-          padding: "8px 16px", display: "flex", alignItems: "center", gap: 20,
-          flexShrink: 0,
+          padding: "7px 14px", display: "flex", alignItems: "center", gap: 8,
+          flexShrink: 0, flexWrap: "wrap",
         }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#6965db" }}>💡 ¿Cómo usar?</span>
-          <span style={{ fontSize: 12, color: "#555" }}>
-            <b>Tab</b> → agregar hijo &nbsp;·&nbsp;
-            <b>Enter</b> → agregar hermano &nbsp;·&nbsp;
-            <b>Delete</b> → eliminar &nbsp;·&nbsp;
-            <b>Doble click</b> → editar texto &nbsp;·&nbsp;
-            <b>Arrastrar nodo</b> → moverlo &nbsp;·&nbsp;
-            <b>Arrastrar fondo</b> → navegar canvas &nbsp;·&nbsp;
-            <b>H</b> → modo mano &nbsp;·&nbsp;
-            <b>Click derecho</b> → más opciones
-          </span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#6965db", flexShrink: 0 }}>💡 Atajos rápidos</span>
+          {[
+            { key: "Tab", desc: "nodo hijo" },
+            { key: "Enter", desc: "nodo hermano" },
+            { key: "Delete", desc: "eliminar" },
+            { key: "Doble clic", desc: "editar texto" },
+            { key: "Arrastrar fondo", desc: "mover canvas" },
+            { key: "Arrastrar nodo", desc: "reordenar" },
+            { key: "Click derecho", desc: "más opciones" },
+          ].map(({ key, desc }) => (
+            <span key={key} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#555" }}>
+              <kbd style={{
+                background: "#fff", border: "1px solid #c8c4f0", borderRadius: 5,
+                padding: "1px 6px", fontSize: 10, fontWeight: 700, color: "#4a47a3",
+                fontFamily: "inherit", boxShadow: "0 1px 0 #c8c4f0",
+              }}>{key}</kbd>
+              <span style={{ color: "#888" }}>{desc}</span>
+            </span>
+          ))}
           <button
             onClick={() => setShowTips(false)}
-            style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#aaa", fontSize: 16, padding: "0 4px" }}
+            style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#bbb", fontSize: 15, padding: "0 2px", lineHeight: 1 }}
           >✕</button>
         </div>
       )}
@@ -1060,10 +1046,9 @@ export const MindMapEditor = ({
         </div>
       )}
 
-      {/* Mind map canvas — me-pan-mode class disables node pointer-events for pure pan */}
+      {/* Mind map canvas */}
       <div
         ref={containerRef}
-        className={panMode ? "me-pan-mode" : undefined}
         style={{ flex: 1, overflow: "hidden", position: "relative" }}
       >
         <MindMapLaser active={laserMode} containerRef={containerRef} />
@@ -1112,27 +1097,6 @@ export const MindMapEditor = ({
           boxShadow: "0 4px 20px rgba(0,0,0,.12)",
           padding: "4px 6px", zIndex: 50,
         }}>
-          {/* Pan / hand mode toggle */}
-          <button
-            onClick={() => {
-              const me = meRef.current as any;
-              if (!me) return;
-              const next = !panMode;
-              me.mouseSelectionButton = next ? 2 : 0;
-              setPanMode(next);
-              // Pan and laser are mutually exclusive
-              if (next) { laserModeRef.current = false; setLaserMode(false); }
-            }}
-            title={panMode ? "Modo mano activo — clic para volver a modo normal (H)" : "Modo mano — arrastrá para navegar el canvas (H)"}
-            style={{
-              background: panMode ? "#6965db" : "none",
-              border: panMode ? "none" : "1px solid #e0e0e0",
-              borderRadius: 8, width: 34, height: 30, fontSize: 16,
-              cursor: "pointer", color: panMode ? "#fff" : "#888",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-          >✋</button>
-
           {/* Laser pointer toggle */}
           <button
             onClick={toggleLaser}
