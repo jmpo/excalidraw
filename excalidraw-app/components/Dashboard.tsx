@@ -33,6 +33,7 @@ import {
   renameFolder,
   saveDrawing,
   moveDrawingToFolder,
+  duplicateDrawing,
   signOut,
   getEffectivePlan,
   isTrialActive,
@@ -45,6 +46,7 @@ import { useAuth } from "../auth/AuthContext";
 import { TEMPLATES } from "../data/templates";
 
 import "./Dashboard.scss";
+import { VersionHistoryPanel } from "./VersionHistoryPanel";
 
 import type { Drawing, DrawingType, Folder, Profile } from "../data/supabase";
 import type { Template } from "../data/templates";
@@ -380,8 +382,11 @@ export const Dashboard = ({
   const [newFolderName, setNewFolderName] = useState("");
   const [movingDrawingId, setMovingDrawingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchType, setSearchType] = useState<DrawingType | "all">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [historyDrawingId, setHistoryDrawingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -431,6 +436,7 @@ export const Dashboard = ({
       setShowTemplatePicker(true);
     }
   };
+
 
   const handleCreateMermaid = async () => {
     try {
@@ -483,6 +489,19 @@ export const Dashboard = ({
     if (!confirm("¿Eliminar este dibujo?")) return;
     await deleteDrawing(id);
     setDrawings((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  const handleDuplicate = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDuplicatingId(id);
+    try {
+      const copy = await duplicateDrawing(id);
+      setDrawings((prev) => [copy, ...prev]);
+    } catch (err: any) {
+      alert("Error al duplicar: " + (err?.message ?? String(err)));
+    } finally {
+      setDuplicatingId(null);
+    }
   };
 
   const startRename = (drawing: Drawing, e: React.MouseEvent) => {
@@ -561,6 +580,7 @@ export const Dashboard = ({
 
   const visibleDrawings = drawings
     .filter((d) => activeFolderId === "all" || d.folder_id === activeFolderId)
+    .filter((d) => searchType === "all" || d.type === searchType)
     .filter((d) => !searchQuery || d.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
@@ -1025,27 +1045,54 @@ export const Dashboard = ({
               + Nuevo dibujo
             </button>
 
-            {/* Search */}
-            <div style={{ position: "relative", flex: 1, minWidth: 180, maxWidth: 300 }}>
-              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "#bbb", pointerEvents: "none" }}>🔍</span>
-              <input
-                type="text"
-                placeholder="Buscar dibujo..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+            {/* Search + type filter */}
+            <div style={{ display: "flex", gap: 6, flex: 1, minWidth: 200, maxWidth: 480 }}>
+              <div style={{ position: "relative", flex: 1 }}>
+                <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#bbb", pointerEvents: "none" }}>🔍</span>
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre… (Ctrl+K)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Escape") { setSearchQuery(""); setSearchType("all"); } }}
+                  ref={(el) => {
+                    if (!el) return;
+                    const handler = (ev: KeyboardEvent) => {
+                      if ((ev.ctrlKey || ev.metaKey) && ev.key === "k") { ev.preventDefault(); el.focus(); }
+                    };
+                    window.addEventListener("keydown", handler);
+                    // eslint-disable-next-line
+                    (el as any)._cleanup = () => window.removeEventListener("keydown", handler);
+                  }}
+                  style={{
+                    width: "100%", padding: "7px 10px 7px 32px", fontSize: 13,
+                    border: "1.5px solid #e0e0f0", borderRadius: 8, outline: "none",
+                    boxSizing: "border-box", fontFamily: "inherit", color: "#333",
+                    background: "#fafafa",
+                  }}
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")}
+                    style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#bbb" }}>
+                    ×
+                  </button>
+                )}
+              </div>
+              {/* Type filter */}
+              <select
+                value={searchType}
+                onChange={(e) => setSearchType(e.target.value as any)}
                 style={{
-                  width: "100%", padding: "7px 10px 7px 32px", fontSize: 13,
-                  border: "1.5px solid #e0e0f0", borderRadius: 8, outline: "none",
-                  boxSizing: "border-box", fontFamily: "inherit", color: "#333",
-                  background: "#fafafa",
+                  padding: "7px 10px", fontSize: 12, border: "1.5px solid #e0e0f0",
+                  borderRadius: 8, outline: "none", fontFamily: "inherit", color: "#555",
+                  background: searchType !== "all" ? "#f0efff" : "#fafafa",
+                  cursor: "pointer", flexShrink: 0,
                 }}
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery("")}
-                  style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#bbb" }}>
-                  ×
-                </button>
-              )}
+              >
+                <option value="all">Todos los tipos</option>
+                <option value="canvas">🎨 Pizarra libre</option>
+                <option value="mindmap">🧠 Mapa mental</option>
+              </select>
             </div>
 
             {/* Bulk select toggle */}
@@ -1122,7 +1169,8 @@ export const Dashboard = ({
                     {(drawing.type === "mindmap" || drawing.type === "mermaid") && (
                       <div style={{
                         position: "absolute", top: 8, left: 8,
-                        background: drawing.type === "mermaid" ? "#0891b2" : "#6965db", color: "#fff",
+                        background: drawing.type === "mermaid" ? "#0891b2" : "#6965db",
+                        color: "#fff",
                         borderRadius: 6, padding: "2px 7px",
                         fontSize: 10, fontWeight: 700, zIndex: 2,
                         letterSpacing: 0.3,
@@ -1190,6 +1238,20 @@ export const Dashboard = ({
                     <div className="dashboard-card-actions">
                       <button title="Mover a carpeta" onClick={(e) => { e.stopPropagation(); setMovingDrawingId(drawing.id); }}>📂</button>
                       <button title="Renombrar" onClick={(e) => startRename(drawing, e)}>✏️</button>
+                      <button
+                        title="Duplicar dibujo"
+                        disabled={duplicatingId === drawing.id}
+                        onClick={(e) => handleDuplicate(drawing.id, e)}
+                        style={{ opacity: duplicatingId === drawing.id ? 0.5 : 1 }}
+                      >
+                        {duplicatingId === drawing.id ? "⏳" : "📋"}
+                      </button>
+                      <button
+                        title="Historial de versiones"
+                        onClick={(e) => { e.stopPropagation(); setHistoryDrawingId(drawing.id); }}
+                      >
+                        🕐
+                      </button>
                       {drawing.thumbnail && (
                         <button title="Descargar PNG" onClick={(e) => {
                           e.stopPropagation();
@@ -1208,6 +1270,26 @@ export const Dashboard = ({
           )}
         </main>
       </div>
+
+      {/* ── Historial de versiones panel ─────────────────────────────────── */}
+      {historyDrawingId && (
+        <VersionHistoryPanel
+          drawingId={historyDrawingId}
+          drawingName={drawings.find((d) => d.id === historyDrawingId)?.name ?? "Sin título"}
+          onClose={() => setHistoryDrawingId(null)}
+          onRestore={(content) => {
+            // Update the drawing in Supabase and local state
+            saveDrawing(historyDrawingId, content as any).then(() => {
+              setHistoryDrawingId(null);
+              // Reload the drawing card
+              setDrawings((prev) =>
+                prev.map((d) => d.id === historyDrawingId ? { ...d, updated_at: new Date().toISOString() } : d)
+              );
+              alert("Versión restaurada. Abrí el dibujo para verla.");
+            });
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -301,6 +301,18 @@ export const MindMapEditor = ({
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfPageCount, setPdfPageCount] = useState<number>(0);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [showTextImport, setShowTextImport] = useState(false);
+  const [textImportValue, setTextImportValue] = useState("");
+  const [textImportError, setTextImportError] = useState<string | null>(null);
+  const [textImportAiLoading, setTextImportAiLoading] = useState(false);
+  const [explainPanel, setExplainPanel] = useState(false);
+  const [explainTopic, setExplainTopic] = useState("");
+  const [explainContext, setExplainContext] = useState("");
+  const [explainLevel, setExplainLevel] = useState<"primary" | "secondary" | "university">("secondary");
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [explainText, setExplainText] = useState("");
+  const [explainError, setExplainError] = useState<string | null>(null);
+  const selectedNodeRef = useRef<{ topic: string; context: string } | null>(null);
 
   const GUEST_MINDMAP_KEY = "edudraw_guest_mindmap";
 
@@ -614,8 +626,19 @@ export const MindMapEditor = ({
       setNodeItalic(style.fontStyle === "italic");
       setNodeFontSize(style.fontSize ?? "");
       setStylePanel(true);
+      // Build context for AI explain: parent → node → children
+      const topic: string = nodeObj?.topic ?? "";
+      const parent: string = nodeObj?.parent?.topic ?? "";
+      const children: string[] = (nodeObj?.children ?? []).map((c: any) => c.topic).filter(Boolean);
+      const ctxParts: string[] = [];
+      if (parent) ctxParts.push(`Pertenece a: "${parent}"`);
+      if (children.length) ctxParts.push(`Sus sub-temas son: ${children.map((c) => `"${c}"`).join(", ")}`);
+      selectedNodeRef.current = { topic, context: ctxParts.join(". ") };
     };
-    const onUnselect = () => setStylePanel(false);
+    const onUnselect = () => {
+      setStylePanel(false);
+      selectedNodeRef.current = null;
+    };
     me.bus.addListener("selectNode", onSelect);
     me.bus.addListener("unselectNode", onUnselect);
     return () => {
@@ -727,6 +750,142 @@ export const MindMapEditor = ({
       setAiLoadingStep(null);
     }
   };
+
+  // ── Text → Mind Map parser ────────────────────────────────────────────────
+  const parseTextToMindElixirData = (raw: string): MindElixirData | null => {
+    const lines = raw.split("\n").map((l) => l.trimEnd()).filter((l) => l.trim());
+    if (!lines.length) return null;
+
+    const genId = () => Math.random().toString(36).slice(2, 10);
+    const cleanMd = (s: string) =>
+      s.replace(/\*\*(.+?)\*\*/g, "$1")
+       .replace(/\*(.+?)\*/g, "$1")
+       .replace(/__(.+?)__/g, "$1")
+       .replace(/_(.+?)_/g, "$1")
+       .replace(/`(.+?)`/g, "$1")
+       .replace(/\[(.+?)\]\(.+?\)/g, "$1")
+       .trim();
+
+    type PNode = { id: string; topic: string; children: PNode[]; _d: number };
+    const makeNode = (topic: string, depth: number): PNode => ({
+      id: genId(), topic, children: [], _d: depth,
+    });
+    const strip = ({ _d: _x, ...r }: PNode): any => ({
+      ...r, children: r.children.map(strip),
+    });
+
+    let rootTopic = "";
+    const roots: PNode[] = [];
+    const stack: PNode[] = [];
+
+    const attach = (node: PNode) => {
+      // Find deepest ancestor with smaller depth
+      while (stack.length && stack[stack.length - 1]._d >= node._d) stack.pop();
+      if (stack.length === 0) roots.push(node);
+      else stack[stack.length - 1].children.push(node);
+      stack.push(node);
+    };
+
+    for (const line of lines) {
+      // # Heading
+      const hm = line.match(/^(#{1,6})\s+(.+)/);
+      if (hm) {
+        const depth = hm[1].length;
+        const topic = cleanMd(hm[2]);
+        if (depth === 1) { rootTopic = topic; stack.length = 0; continue; }
+        attach(makeNode(topic, depth));
+        continue;
+      }
+      // - Bullet / * / numbered list
+      const bm = line.match(/^(\s*)([-*+]|\d+[.)]) +(.+)/);
+      if (bm) {
+        const indent = bm[1].length;
+        attach(makeNode(cleanMd(bm[3]), 2 + Math.floor(indent / 2)));
+        continue;
+      }
+      // Indented plain text (≥2 spaces)
+      const im = line.match(/^(\s{2,})(.+)/);
+      if (im) {
+        attach(makeNode(cleanMd(im[2]), 2 + Math.floor(im[1].length / 2)));
+        continue;
+      }
+      // Plain line
+      const topic = cleanMd(line);
+      if (!topic) continue;
+      if (!rootTopic && roots.length === 0) { rootTopic = topic; continue; }
+      attach(makeNode(topic, 2));
+    }
+
+    if (!rootTopic && roots.length === 0) return null;
+    if (!rootTopic) { rootTopic = roots.shift()!.topic; }
+
+    return {
+      nodeData: { id: "root", topic: rootTopic, children: roots.map(strip) },
+    } as any;
+  };
+
+  const applyTextImport = () => {
+    const text = textImportValue.trim();
+    if (!text) { setTextImportError("Escribí o pegá texto primero."); return; }
+    const data = parseTextToMindElixirData(text);
+    if (!data) { setTextImportError("No se pudo interpretar el texto. Revisá el formato."); return; }
+    meRef.current?.init(data);
+    setShowTextImport(false);
+    setTextImportValue("");
+    setTextImportError(null);
+    scheduleSave();
+  };
+
+  const generateTextImportWithAI = async () => {
+    const text = textImportValue.trim();
+    if (!text) { setTextImportError("Escribí o pegá texto primero."); return; }
+    if (!meRef.current) return;
+    setTextImportAiLoading(true);
+    setTextImportError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-mindmap", {
+        body: { text },
+      });
+      if (error) throw new Error(error.message);
+      meRef.current.init(data as MindElixirData);
+      setShowTextImport(false);
+      setTextImportValue("");
+      scheduleSave();
+    } catch (err: any) {
+      setTextImportError(err?.message ?? "Error al generar con IA. Intentá el modo básico.");
+    } finally {
+      setTextImportAiLoading(false);
+    }
+  };
+
+  const openExplainPanel = () => {
+    const node = selectedNodeRef.current;
+    if (!node?.topic) return;
+    setExplainTopic(node.topic);
+    setExplainContext(node.context);
+    setExplainText("");
+    setExplainError(null);
+    setExplainPanel(true);
+  };
+
+  const runExplain = async () => {
+    if (!explainTopic) return;
+    setExplainLoading(true);
+    setExplainError(null);
+    setExplainText("");
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-explain", {
+        body: { topic: explainTopic, context: explainContext, level: explainLevel },
+      });
+      if (error) throw new Error(error.message);
+      setExplainText(data?.explanation ?? "Sin respuesta.");
+    } catch (err: any) {
+      setExplainError(err?.message ?? "Error al generar explicación.");
+    } finally {
+      setExplainLoading(false);
+    }
+  };
+
 
   const applyTemplate = (data: MindElixirData) => {
     meRef.current?.init(data);
@@ -900,6 +1059,19 @@ export const MindMapEditor = ({
         >
           {isMobile ? "✨" : "✨ Generar con IA"}
         </button>
+
+        <button
+          onClick={() => { setShowTextImport(true); setTextImportError(null); }}
+          title="Convertir texto o markdown a mapa mental"
+          style={{
+            background: "none", border: "1px solid #e0e0e0",
+            borderRadius: 6, padding: isMobile ? "6px 8px" : "5px 13px", fontSize: 12,
+            color: "#555", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, minHeight: 36,
+          }}
+        >
+          {isMobile ? "📝" : "📝 Texto → Mapa"}
+        </button>
+
 
         <button
           onClick={() => setShowStickerPicker(v => !v)}
@@ -1268,6 +1440,19 @@ export const MindMapEditor = ({
             </div>
           </div>
 
+          {/* Explain with AI */}
+          <button
+            onClick={openExplainPanel}
+            style={{
+              background: "linear-gradient(135deg,#7c4bff,#6128ff)", border: "none",
+              borderRadius: 8, padding: "7px 10px", fontSize: 12,
+              color: "#fff", cursor: "pointer", fontWeight: 700,
+              boxShadow: "0 2px 8px rgba(97,40,255,.3)", letterSpacing: ".02em",
+            }}
+          >
+            ✨ Explicar nodo con IA
+          </button>
+
           {/* Reset all */}
           <button onClick={() => {
             setNodeColor(""); setNodeBg(""); setNodeBold(false); setNodeItalic(false); setNodeFontSize("");
@@ -1444,6 +1629,237 @@ export const MindMapEditor = ({
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
+
+      {/* ── Text → Mind Map modal ─────────────────────────────────────────── */}
+      {showTextImport && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(10,5,30,0.55)", zIndex: 300,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={(e) => { if (e.target === e.currentTarget && !textImportAiLoading) { setShowTextImport(false); setTextImportError(null); } }}
+        >
+          <div style={{ background: "#fff", borderRadius: 20, width: 580, maxWidth: "100%",
+            maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.35)",
+            display: "flex", flexDirection: "column", fontFamily: "Assistant, system-ui, sans-serif" }}>
+
+            {/* Header */}
+            <div style={{ padding: "22px 24px 0", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#1a1a2e" }}>📝 Texto → Mapa mental</div>
+                <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
+                  Pegá texto, un esquema o markdown y lo convertimos en mapa
+                </div>
+              </div>
+              <button onClick={() => { if (!textImportAiLoading) { setShowTextImport(false); setTextImportError(null); } }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#bbb", fontSize: 22, lineHeight: 1, padding: "2px 4px", marginTop: -4 }}>×</button>
+            </div>
+
+            {/* Format examples */}
+            <div style={{ margin: "16px 24px 0", background: "#f8f7ff", borderRadius: 10, padding: "10px 14px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6965db", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".05em" }}>
+                Formatos aceptados
+              </div>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                {[
+                  { label: "Markdown", ex: "# Título\n## Rama\n### Sub-rama" },
+                  { label: "Lista con guiones", ex: "Tema\n- Rama 1\n  - Sub" },
+                  { label: "Texto indentado", ex: "Tema central\n  Rama 1\n    Sub-rama" },
+                ].map(({ label, ex }) => (
+                  <button key={label} onClick={() => setTextImportValue(ex)}
+                    style={{ background: "#fff", border: "1px solid #e0deff", borderRadius: 7,
+                      padding: "5px 10px", fontSize: 11, cursor: "pointer", color: "#5551c4",
+                      fontFamily: "monospace", whiteSpace: "pre", lineHeight: 1.5, textAlign: "left" }}>
+                    <div style={{ fontFamily: "inherit", fontWeight: 700, marginBottom: 2, color: "#888", letterSpacing: ".05em" }}>{label}</div>
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Textarea */}
+            <div style={{ padding: "12px 24px 0" }}>
+              <textarea
+                autoFocus
+                value={textImportValue}
+                onChange={(e) => { setTextImportValue(e.target.value); setTextImportError(null); }}
+                disabled={textImportAiLoading}
+                placeholder={"# Mi tema principal\n## Primera rama\n### Sub-tema\n## Segunda rama\n- Elemento 1\n- Elemento 2"}
+                style={{ width: "100%", height: 220, padding: "12px 14px", border: "1.5px solid #e0deff",
+                  borderRadius: 10, fontSize: 13, fontFamily: "monospace", resize: "vertical",
+                  outline: "none", lineHeight: 1.6, color: "#333", boxSizing: "border-box",
+                  background: textImportAiLoading ? "#f9f9f9" : "#fff" }}
+              />
+            </div>
+
+            {/* Error */}
+            {textImportError && (
+              <div style={{ margin: "8px 24px 0", padding: "8px 12px", background: "#fff0f0",
+                border: "1px solid #ffcccc", borderRadius: 8, fontSize: 12, color: "#c00" }}>
+                {textImportError}
+              </div>
+            )}
+
+            {/* AI loading bar */}
+            {textImportAiLoading && (
+              <div style={{ margin: "12px 24px 0" }}>
+                <div style={{ fontSize: 12, color: "#6965db", marginBottom: 6, fontWeight: 600 }}>
+                  ✨ Claude AI está estructurando tu mapa…
+                </div>
+                <div style={{ height: 6, background: "#f0efff", borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: "linear-gradient(90deg,#7c4bff,#6128ff)",
+                    borderRadius: 4, width: "75%", transition: "width 2s ease",
+                    animation: "pulse 1.5s ease-in-out infinite" }} />
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ padding: "16px 24px 22px", display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button onClick={() => { if (!textImportAiLoading) { setShowTextImport(false); setTextImportError(null); } }}
+                disabled={textImportAiLoading}
+                style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #e0e0e0",
+                  background: "none", fontSize: 13, cursor: "pointer", color: "#666" }}>
+                Cancelar
+              </button>
+              <button onClick={applyTextImport} disabled={textImportAiLoading || !textImportValue.trim()}
+                title="Convierte el texto directamente sin IA (instantáneo)"
+                style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #6965db",
+                  background: "#f0efff", fontSize: 13, cursor: "pointer", color: "#6965db", fontWeight: 600 }}>
+                ⚡ Convertir
+              </button>
+              <button onClick={generateTextImportWithAI} disabled={textImportAiLoading || !textImportValue.trim()}
+                title="Usa Claude AI para estructurar e enriquecer el mapa (recomendado para texto libre)"
+                style={{ padding: "9px 20px", borderRadius: 8, border: "none",
+                  background: textImportAiLoading ? "#ccc" : "linear-gradient(135deg,#7c4bff,#6128ff)",
+                  fontSize: 13, cursor: textImportAiLoading ? "not-allowed" : "pointer",
+                  color: "#fff", fontWeight: 700, boxShadow: "0 2px 8px rgba(97,40,255,.3)" }}>
+                {textImportAiLoading ? "Generando…" : "✨ Generar con IA"}
+              </button>
+            </div>
+
+            <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }`}</style>
+          </div>
+        </div>
+      )}
+
+      {/* ── Explain Node panel ────────────────────────────────────────────── */}
+      {explainPanel && (
+        <div style={{
+          position: "fixed", right: 0, top: 0, bottom: 0, width: 380, maxWidth: "100vw",
+          background: "#fff", boxShadow: "-4px 0 32px rgba(0,0,0,.15)",
+          zIndex: 400, display: "flex", flexDirection: "column",
+          fontFamily: "Assistant, system-ui, sans-serif",
+          animation: "slideInRight .25s ease",
+        }}>
+          {/* Header */}
+          <div style={{ background: "linear-gradient(135deg,#7c4bff,#6128ff)", padding: "20px 20px 16px" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,.7)", marginBottom: 4 }}>✨ Explicar con IA</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", lineHeight: 1.2 }}>
+                  {explainTopic}
+                </div>
+              </div>
+              <button onClick={() => setExplainPanel(false)}
+                style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: 8,
+                  color: "#fff", cursor: "pointer", fontSize: 18, lineHeight: 1,
+                  padding: "4px 8px", marginLeft: 8, flexShrink: 0 }}>×</button>
+            </div>
+            {/* Level selector */}
+            <div style={{ display: "flex", gap: 6, marginTop: 14 }}>
+              {([["primary", "🎒 Primaria"], ["secondary", "📚 Secundaria"], ["university", "🎓 Universidad"]] as const).map(([val, label]) => (
+                <button key={val} onClick={() => setExplainLevel(val)}
+                  style={{
+                    flex: 1, padding: "5px 4px", borderRadius: 8, border: "none",
+                    fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "all .15s",
+                    background: explainLevel === val ? "#fff" : "rgba(255,255,255,.15)",
+                    color: explainLevel === val ? "#6128ff" : "rgba(255,255,255,.8)",
+                  }}>{label}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
+            {!explainText && !explainLoading && !explainError && (
+              <div style={{ textAlign: "center", paddingTop: 40 }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🧠</div>
+                <div style={{ fontSize: 14, color: "#888", marginBottom: 20, lineHeight: 1.5 }}>
+                  Claude explicará <strong>"{explainTopic}"</strong><br/>
+                  adaptado al nivel seleccionado
+                </div>
+                <button onClick={runExplain}
+                  style={{
+                    background: "linear-gradient(135deg,#7c4bff,#6128ff)", border: "none",
+                    borderRadius: 10, padding: "12px 28px", fontSize: 14,
+                    color: "#fff", cursor: "pointer", fontWeight: 700,
+                    boxShadow: "0 4px 16px rgba(97,40,255,.35)",
+                  }}>
+                  ✨ Generar explicación
+                </button>
+              </div>
+            )}
+
+            {explainLoading && (
+              <div style={{ textAlign: "center", paddingTop: 40 }}>
+                <div style={{ fontSize: 32, marginBottom: 12, animation: "pulse 1.2s infinite" }}>✨</div>
+                <div style={{ fontSize: 13, color: "#6128ff", fontWeight: 600 }}>
+                  Claude está explicando…
+                </div>
+                <div style={{ marginTop: 16, height: 4, background: "#f0efff", borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: "linear-gradient(90deg,#7c4bff,#6128ff)",
+                    borderRadius: 4, animation: "loading 1.5s ease-in-out infinite" }} />
+                </div>
+              </div>
+            )}
+
+            {explainError && (
+              <div style={{ background: "#fff0f0", border: "1px solid #ffcccc", borderRadius: 10,
+                padding: "12px 16px", fontSize: 13, color: "#c00", marginBottom: 12 }}>
+                ⚠ {explainError}
+              </div>
+            )}
+
+            {explainText && !explainLoading && (
+              <div style={{ fontSize: 14, lineHeight: 1.65, color: "#333" }}>
+                {explainText.split("\n").map((line, i) => {
+                  if (line.startsWith("## ")) {
+                    return <div key={i} style={{ fontSize: 13, fontWeight: 800, color: "#6128ff",
+                      marginTop: i === 0 ? 0 : 18, marginBottom: 6,
+                      textTransform: "uppercase", letterSpacing: ".05em" }}>
+                      {line.replace("## ", "")}
+                    </div>;
+                  }
+                  if (line.trim() === "") return <div key={i} style={{ height: 4 }} />;
+                  return <p key={i} style={{ margin: "0 0 6px" }}>{line}</p>;
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          {explainText && !explainLoading && (
+            <div style={{ padding: "12px 20px", borderTop: "1px solid #f0f0f8", display: "flex", gap: 8 }}>
+              <button onClick={runExplain}
+                style={{ flex: 1, background: "#f0efff", border: "none", borderRadius: 8,
+                  padding: "8px", fontSize: 12, color: "#6128ff", cursor: "pointer", fontWeight: 600 }}>
+                🔄 Regenerar
+              </button>
+              <button onClick={() => { navigator.clipboard?.writeText(explainText); }}
+                style={{ flex: 1, background: "#f0efff", border: "none", borderRadius: 8,
+                  padding: "8px", fontSize: 12, color: "#6128ff", cursor: "pointer", fontWeight: 600 }}>
+                📋 Copiar
+              </button>
+            </div>
+          )}
+
+          <style>{`
+            @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+            @keyframes loading { 0% { width: 10%; } 50% { width: 70%; } 100% { width: 10%; } }
+            @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+          `}</style>
+        </div>
+      )}
+
 
       {/* Templates modal */}
       {showTemplates && (

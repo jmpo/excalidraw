@@ -109,6 +109,8 @@ const MermaidEditor = lazy(() =>
   import("./components/MermaidEditor").then((m) => ({ default: m.MermaidEditor })),
 );
 import { AdminPanel } from "./components/AdminPanel";
+import { MathFormulaInserter } from "./components/MathFormulaInserter";
+import { VideoEmbed } from "./components/VideoEmbed";
 import { OnboardingForm } from "./components/OnboardingForm";
 import { LoginScreen } from "./components/LoginScreen";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
@@ -1446,6 +1448,8 @@ const ExcalidrawWrapper = ({
                 ▶ Presentar
               </button>
 
+              <MathFormulaInserter excalidrawAPI={excalidrawAPI} />
+              <VideoEmbed excalidrawAPI={excalidrawAPI} />
               {collabError.message && <CollabError collabError={collabError} />}
               <LiveCollaborationTrigger
                 isCollaborating={isCollaborating}

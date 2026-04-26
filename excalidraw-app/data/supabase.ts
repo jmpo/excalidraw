@@ -152,6 +152,90 @@ export const saveDrawing = async (
   }
 };
 
+export const duplicateDrawing = async (id: string): Promise<Drawing> => {
+  // Fetch full drawing including content
+  const { data: src, error: fetchErr } = await supabase
+    .from("drawings")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (fetchErr || !src) throw fetchErr ?? new Error("Drawing not found");
+  const { data: { session } } = await supabase.auth.getSession();
+  const { data, error } = await supabase
+    .from("drawings")
+    .insert({
+      user_id: session!.user.id,
+      folder_id: src.folder_id,
+      name: `${src.name} (copia)`,
+      type: src.type,
+      content: src.content,
+      thumbnail: src.thumbnail,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Drawing;
+};
+
+// ── Version history ───────────────────────────────────────────────────────────
+
+export type DrawingVersion = {
+  id: string;
+  drawing_id: string;
+  label: string | null;
+  snapshot: Record<string, unknown>;
+  created_at: string;
+};
+
+export const saveVersion = async (
+  drawingId: string,
+  snapshot: Record<string, unknown>,
+  label?: string,
+): Promise<void> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("No autenticado");
+  // Insert new version
+  const { error: insertError } = await supabase.from("drawing_versions").insert({
+    drawing_id: drawingId,
+    user_id: session.user.id,
+    label: label ?? null,
+    snapshot,
+  });
+  if (insertError) throw insertError;
+  // Keep only last 10 versions per drawing
+  const { data: versions } = await supabase
+    .from("drawing_versions")
+    .select("id, created_at")
+    .eq("drawing_id", drawingId)
+    .order("created_at", { ascending: false });
+  if (versions && versions.length > 10) {
+    const toDelete = versions.slice(10).map((v: any) => v.id);
+    await supabase.from("drawing_versions").delete().in("id", toDelete);
+  }
+};
+
+export const getVersions = async (drawingId: string): Promise<DrawingVersion[]> => {
+  const { data } = await supabase
+    .from("drawing_versions")
+    .select("id, drawing_id, label, created_at")
+    .eq("drawing_id", drawingId)
+    .order("created_at", { ascending: false });
+  return (data ?? []) as DrawingVersion[];
+};
+
+export const getVersionSnapshot = async (versionId: string): Promise<Record<string, unknown> | null> => {
+  const { data } = await supabase
+    .from("drawing_versions")
+    .select("snapshot")
+    .eq("id", versionId)
+    .single();
+  return (data as any)?.snapshot ?? null;
+};
+
+export const deleteVersion = async (versionId: string): Promise<void> => {
+  await supabase.from("drawing_versions").delete().eq("id", versionId);
+};
+
 export const touchDrawing = async (id: string) => {
   await supabase
     .from("drawings")
@@ -387,4 +471,5 @@ export const adminExtendTrial = async (userId: string, days: number) => {
     .eq("id", userId);
   if (error) throw error;
 };
+
 
