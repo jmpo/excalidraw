@@ -1990,11 +1990,13 @@ const ExcalidrawAppInner = () => {
   useEffect(() => {
     if (!session) return;
 
-    fetchProfile().then((p) => {
-      setProfile(p);
-      if (p && !p.onboarding_done) setShowOnboarding(true);
-      setProfileChecked(true);
-    });
+    fetchProfile()
+      .then((p) => {
+        setProfile(p);
+        if (p && !p.onboarding_done) setShowOnboarding(true);
+        setProfileChecked(true);
+      })
+      .catch(() => setProfileChecked(true));
 
     const channel = supabase
       .channel(`profile:${session.user.id}`)
@@ -2084,26 +2086,8 @@ const ExcalidrawAppInner = () => {
       return;
     }
 
-    setInitializing(true);
-    fetchDrawings()
-      .then(async () => {
-        navigate("/?dashboard");
-        setView("dashboard");
-      })
-      .catch(async (err) => {
-        console.error("fetchDrawings error:", err);
-        const msg = err?.message || err?.code || JSON.stringify(err);
-        setInitError(String(msg));
-        initDone.current = false;
-        const isAuthError =
-          err?.status === 401 ||
-          err?.code === "PGRST301" ||
-          String(err?.message).toLowerCase().includes("jwt");
-        if (isAuthError) {
-          await signOut({ scope: "local" });
-        }
-      })
-      .finally(() => setInitializing(false));
+    navigate("/?dashboard");
+    setView("dashboard");
   }, [session, currentDrawingId, profileChecked, showOnboarding]);
 
   // Public shared drawing — anyone can view, no auth required
@@ -2339,11 +2323,10 @@ const ExcalidrawAppInner = () => {
     return (
       <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#6965db", fontSize: 16 }}>Cargando…</div>}>
         <Dashboard
-          onOpenDrawing={async (id) => {
+          onOpenDrawing={(id, type) => {
             navigate(`/?d=${id}`);
             setCurrentDrawingId(id);
-            const d = await fetchDrawing(id).catch(() => null);
-            setCurrentDrawingType(d?.type ?? "canvas");
+            setCurrentDrawingType(type ?? "canvas");
             setView("canvas");
             touchDrawing(id).catch(() => {});
           }}

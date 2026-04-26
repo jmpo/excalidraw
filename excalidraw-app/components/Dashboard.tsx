@@ -359,7 +359,7 @@ export const Dashboard = ({
   onProfileChange,
   onCompleteProfile,
 }: {
-  onOpenDrawing: (id: string) => void;
+  onOpenDrawing: (id: string, type?: DrawingType) => void;
   onOpenAdmin?: () => void;
   profile?: Profile | null;
   onProfileChange?: (p: Profile) => void;
@@ -444,7 +444,7 @@ export const Dashboard = ({
       if (activeFolderId && activeFolderId !== "all") {
         await moveDrawingToFolder(drawing.id, activeFolderId);
       }
-      onOpenDrawing(drawing.id);
+      onOpenDrawing(drawing.id, "mermaid");
     } catch (err: any) {
       if (err instanceof DrawingLimitError) { setShowUpgradeModal(true); return; }
       alert("Error al crear el diagrama.\n\n" + (err?.message ?? String(err)));
@@ -457,7 +457,7 @@ export const Dashboard = ({
       if (activeFolderId && activeFolderId !== "all") {
         await moveDrawingToFolder(drawing.id, activeFolderId);
       }
-      onOpenDrawing(drawing.id);
+      onOpenDrawing(drawing.id, "mindmap");
     } catch (err: any) {
       if (err instanceof DrawingLimitError) { setShowTypePicker(false); setShowUpgradeModal(true); return; }
       alert("Error al crear el mapa mental.\n\n" + (err?.message ?? String(err)));
@@ -477,7 +477,7 @@ export const Dashboard = ({
       if (activeFolderId && activeFolderId !== "all") {
         await moveDrawingToFolder(drawing.id, activeFolderId);
       }
-      onOpenDrawing(drawing.id);
+      onOpenDrawing(drawing.id, "canvas");
     } catch (err: any) {
       if (err instanceof DrawingLimitError) { setShowUpgradeModal(true); return; }
       throw err;
@@ -1104,7 +1104,7 @@ export const Dashboard = ({
                   onClick={(e) => {
                     if (selectMode) { toggleSelect(drawing.id, e); return; }
                     if (accountPaused || lockedIds.has(drawing.id)) { setShowUpgradeModal(true); return; }
-                    onOpenDrawing(drawing.id);
+                    onOpenDrawing(drawing.id, drawing.type);
                   }}
                   style={{
                     ...(lockedIds.has(drawing.id) ? { opacity: 0.7 } : {}),
