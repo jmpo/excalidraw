@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — katex types exist but don't resolve with current moduleResolution
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { randomId } from "@excalidraw/common";
