@@ -60,7 +60,7 @@ export type Drawing = {
   folder_id: string | null;
   name: string;
   type: DrawingType;
-  content: { elements: unknown[]; appState: Record<string, unknown>; files?: Record<string, unknown> };
+  content: { elements: unknown[]; appState: Record<string, unknown>; files?: Record<string, unknown> } | null;
   thumbnail: string | null;
   created_at: string;
   updated_at: string;
@@ -89,12 +89,12 @@ export const getSession = () => supabase.auth.getSession();
 // ── Drawings CRUD ─────────────────────────────────────────────────────────────
 
 export const fetchDrawings = async (): Promise<Drawing[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return [];
   const { data, error } = await supabase
     .from("drawings")
-    .select("*")
-    .eq("user_id", user.id)
+    .select("id, user_id, folder_id, name, type, thumbnail, created_at, updated_at")
+    .eq("user_id", session.user.id)
     .order("updated_at", { ascending: false });
   if (error) throw error;
   return data as Drawing[];
