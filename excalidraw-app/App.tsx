@@ -929,20 +929,36 @@ const ExcalidrawWrapper = ({
       const supabaseDrawing = await fetchDrawing(drawingId).catch(() => null);
       if (supabaseDrawing) {
         // Dibujo encontrado en Supabase — usar su contenido (puede estar vacío)
-        const elements = (supabaseDrawing.content?.elements ?? []) as Parameters<typeof restoreElements>[0];
+        const rawElements = (supabaseDrawing.content?.elements ?? []) as Parameters<typeof restoreElements>[0];
         const appState = (supabaseDrawing.content?.appState ?? {}) as Parameters<typeof restoreAppState>[0];
-        const files = (supabaseDrawing.content?.files ?? {}) as BinaryFiles;
+        const supabaseFiles = (supabaseDrawing.content?.files ?? {}) as BinaryFiles;
+        const restoredElements = restoreElements(rawElements, null, {
+          repairBindings: true,
+          deleteInvisibleElements: true,
+        });
         initialStatePromiseRef.current.promise.resolve({
-          elements: restoreElements(elements, null, {
-            repairBindings: true,
-            deleteInvisibleElements: true,
-          }),
+          elements: restoredElements,
           appState: restoreAppState(
             { ...appState, collaborators: new Map() },
             null,
           ),
-          files,
+          files: supabaseFiles,
         });
+        // Load images from IndexedDB as fallback for drawings without content.files
+        // (old drawings) or as supplement if Supabase files are incomplete
+        const imageFileIds = restoredElements
+          .filter((el) => isInitializedImageElement(el))
+          .map((el) => (el as any).fileId as FileId);
+        if (imageFileIds.length > 0) {
+          LocalData.fileStorage
+            .getFiles(imageFileIds)
+            .then(({ loadedFiles }) => {
+              if (loadedFiles.length > 0) {
+                excalidrawAPI.addFiles(loadedFiles);
+              }
+            })
+            .catch(() => {});
+        }
         return;
       }
       const data = await initializeScene({ collabAPI, excalidrawAPI });
