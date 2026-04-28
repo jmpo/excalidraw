@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 640);
@@ -387,6 +387,19 @@ export const Dashboard = ({
   const [selectMode, setSelectMode] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [historyDrawingId, setHistoryDrawingId] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Ctrl+K — focus search (single listener, properly cleaned up)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -1055,15 +1068,7 @@ export const Dashboard = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Escape") { setSearchQuery(""); setSearchType("all"); } }}
-                  ref={(el) => {
-                    if (!el) return;
-                    const handler = (ev: KeyboardEvent) => {
-                      if ((ev.ctrlKey || ev.metaKey) && ev.key === "k") { ev.preventDefault(); el.focus(); }
-                    };
-                    window.addEventListener("keydown", handler);
-                    // eslint-disable-next-line
-                    (el as any)._cleanup = () => window.removeEventListener("keydown", handler);
-                  }}
+                  ref={searchInputRef}
                   style={{
                     width: "100%", padding: "7px 10px 7px 32px", fontSize: 13,
                     border: "1.5px solid #e0e0f0", borderRadius: 8, outline: "none",
