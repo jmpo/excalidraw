@@ -581,7 +581,7 @@ export const MindMapEditor = ({
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new MutationObserver(() => {
-      if (debounceTimer) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
         hideMenuFields();

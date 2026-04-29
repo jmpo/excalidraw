@@ -3,8 +3,11 @@ import { useEffect, useState, useCallback, useRef } from "react";
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 640);
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth <= 640);
-    window.addEventListener("resize", handler);
+    const handler = () => {
+      const next = window.innerWidth <= 640;
+      setIsMobile((prev) => (prev === next ? prev : next));
+    };
+    window.addEventListener("resize", handler, { passive: true });
     return () => window.removeEventListener("resize", handler);
   }, []);
   return isMobile;
