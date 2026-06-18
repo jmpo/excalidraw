@@ -80,7 +80,10 @@ Deno.serve(async (req) => {
   const buyer = (data?.buyer ?? data?.subscriber) as Record<string, unknown> | undefined;
   const purchase = data?.purchase as Record<string, unknown> | undefined;
 
-  const buyerEmail = buyer?.email as string | undefined;
+  // Normalize to lowercase: Supabase Auth stores emails lowercased, so the
+  // profile lookup, pending_activations key and the handle_new_user trigger
+  // must all compare lowercase or the match silently fails (→ trial instead of Pro).
+  const buyerEmail = (buyer?.email as string | undefined)?.trim().toLowerCase();
   const purchaseStatus = purchase?.status as string | undefined;
 
   // ── Subscription details (period / price / next charge) ──────────────────────
