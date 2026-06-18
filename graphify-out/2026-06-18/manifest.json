@@ -3725,8 +3725,8 @@
     "semantic_hash": "0a57b84c5587dcd5b580199bc453f568"
   },
   "supabase/functions/hotmart-webhook/index.ts": {
-    "mtime": 1781807849.2649355,
-    "ast_hash": "430054fe782364b9be1382e513ca36a4",
+    "mtime": 1781808811.5015745,
+    "ast_hash": "779b1c2380590f2202c189cb42e0a534",
     "semantic_hash": ""
   },
   "supabase/functions/meta-capi/index.ts": {
@@ -4742,6 +4742,11 @@
   "supabase/migrations/20260618120000_subscription_plans.sql": {
     "mtime": 1781807806.6116538,
     "ast_hash": "8cadb4ac174a7bda9940d7f405ff48a0",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260618130000_pending_activations.sql": {
+    "mtime": 1781808783.6451485,
+    "ast_hash": "c1019d0c8bad44857db7bf208b70be21",
     "semantic_hash": ""
   }
 }

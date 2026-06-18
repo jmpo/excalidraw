@@ -1,11 +1,11 @@
 # Graph Report - excali draw saas  (2026-06-18)
 
 ## Corpus Check
-- 824 files · ~905,502 words
+- 825 files · ~906,060 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 34154 nodes · 42961 edges · 1446 communities (1391 shown, 55 thin omitted)
+- 34154 nodes · 42961 edges · 1446 communities (1390 shown, 56 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 1116 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -1468,25 +1468,25 @@
 - 1-file cycle: `packages/element/src/shape.ts -> packages/element/src/shape.ts`
 - 1-file cycle: `packages/element/src/index.ts -> packages/element/src/index.ts`
 - 1-file cycle: `packages/utils/src/index.ts -> packages/utils/src/index.ts`
+- 3-file cycle: `packages/excalidraw/components/LibraryMenu.tsx -> packages/excalidraw/components/LibraryMenuItems.tsx -> packages/excalidraw/components/LibraryMenuHeaderContent.tsx -> packages/excalidraw/components/LibraryMenu.tsx`
+- 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/Sidebar/Sidebar.tsx -> packages/excalidraw/components/Sidebar/SidebarHeader.tsx -> packages/excalidraw/components/App.tsx`
 - 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/Sidebar/Sidebar.tsx -> packages/excalidraw/components/Sidebar/SidebarTabs.tsx -> packages/excalidraw/components/App.tsx`
-- 3-file cycle: `packages/excalidraw/actions/actionClipboard.tsx -> packages/excalidraw/actions/actionDeleteSelected.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/actions/actionClipboard.tsx`
+- 3-file cycle: `packages/excalidraw/components/ActiveConfirmDialog.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/components/LayerUI.tsx -> packages/excalidraw/components/ActiveConfirmDialog.tsx`
+- 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/hyperlink/Hyperlink.tsx -> packages/excalidraw/components/ToolButton.tsx -> packages/excalidraw/components/App.tsx`
 - 3-file cycle: `packages/excalidraw/actions/actionDuplicateSelection.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/actions/index.ts -> packages/excalidraw/actions/actionDuplicateSelection.tsx`
-- 3-file cycle: `packages/excalidraw/actions/actionDeleteSelected.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/actions/index.ts -> packages/excalidraw/actions/actionDeleteSelected.tsx`
+- 3-file cycle: `packages/excalidraw/actions/actionCanvas.tsx -> packages/excalidraw/components/ToolButton.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/actions/actionCanvas.tsx`
+- 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/ConvertElementTypePopup.tsx -> packages/excalidraw/components/ToolButton.tsx -> packages/excalidraw/components/App.tsx`
+- 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/MagicButton.tsx -> packages/excalidraw/components/ToolButton.tsx -> packages/excalidraw/components/App.tsx`
 - 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/LayerUI.tsx -> packages/excalidraw/components/UserList.tsx -> packages/excalidraw/components/App.tsx`
 - 3-file cycle: `packages/excalidraw/actions/actionCanvas.tsx -> packages/excalidraw/components/ColorPicker/ColorPicker.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/actions/actionCanvas.tsx`
-- 3-file cycle: `packages/excalidraw/actions/actionCanvas.tsx -> packages/excalidraw/components/ToolButton.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/actions/actionCanvas.tsx`
+- 3-file cycle: `packages/excalidraw/actions/actionClipboard.tsx -> packages/excalidraw/actions/actionDeleteSelected.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/actions/actionClipboard.tsx`
+- 3-file cycle: `packages/excalidraw/actions/actionDeleteSelected.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/actions/index.ts -> packages/excalidraw/actions/actionDeleteSelected.tsx`
 - 3-file cycle: `packages/excalidraw/actions/actionExport.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/actions/index.ts -> packages/excalidraw/actions/actionExport.tsx`
-- 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/ConvertElementTypePopup.tsx -> packages/excalidraw/components/ToolButton.tsx -> packages/excalidraw/components/App.tsx`
 - 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/EyeDropper.tsx -> packages/excalidraw/hooks/useCreatePortalContainer.ts -> packages/excalidraw/components/App.tsx`
 - 3-file cycle: `packages/excalidraw/components/Actions.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/components/LayerUI.tsx -> packages/excalidraw/components/Actions.tsx`
-- 3-file cycle: `packages/excalidraw/components/ActiveConfirmDialog.tsx -> packages/excalidraw/components/App.tsx -> packages/excalidraw/components/LayerUI.tsx -> packages/excalidraw/components/ActiveConfirmDialog.tsx`
 - 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/LayerUI.tsx -> packages/excalidraw/components/DefaultSidebar.tsx -> packages/excalidraw/components/App.tsx`
-- 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/LayerUI.tsx -> packages/excalidraw/components/ErrorDialog.tsx -> packages/excalidraw/components/App.tsx`
-- 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/LayerUI.tsx -> packages/excalidraw/components/PasteChartDialog.tsx -> packages/excalidraw/components/App.tsx`
-- 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/LayerUI.tsx -> packages/excalidraw/components/Section.tsx -> packages/excalidraw/components/App.tsx`
-- 3-file cycle: `packages/excalidraw/components/App.tsx -> packages/excalidraw/components/LayerUI.tsx -> packages/excalidraw/components/main-menu/MainMenu.tsx -> packages/excalidraw/components/App.tsx`
 
-## Communities (1446 total, 55 thin omitted)
+## Communities (1446 total, 56 thin omitted)
 
 ### Community 0 - "Packages / Excalidraw"
 Cohesion: 0.02
@@ -1494,27 +1494,27 @@ Nodes (216): actionAddToLibrary, actionAlignBottom, actionAlignHorizontallyCente
 
 ### Community 1 - "Excalidraw app / Data"
 Cohesion: 0.02
-Nodes (214): CollabInstance, CollabProps, CollabState, TCollabClass, Window, exportToExcalidrawPlus(), generatePreviewImage(), blobToArrayBuffer() (+206 more)
+Nodes (204): CollabInstance, CollabProps, CollabState, TCollabClass, Window, exportToExcalidrawPlus(), generatePreviewImage(), blobToArrayBuffer() (+196 more)
 
 ### Community 2 - "Packages / Excalidraw 2"
 Cohesion: 0.04
-Nodes (101): actionChangeExportEmbedScene, getShortcutFromShortcutName(), InteractiveCanvas(), CommandPaletteInner(), ActiveConfirmDialog(), activeConfirmDialogAtom, useApp(), useAppProps() (+93 more)
+Nodes (107): actionChangeExportEmbedScene, getShortcutFromShortcutName(), InteractiveCanvas(), CommandPaletteInner(), ActiveConfirmDialog(), activeConfirmDialogAtom, useApp(), useAppProps() (+99 more)
 
 ### Community 3 - "Types.ts"
-Cohesion: 0.03
-Nodes (102): CacheKey, ConversionType, convertElementType(), convertElementTypes(), CONVERTIBLE_GENERIC_TYPES, CONVERTIBLE_LINEAR_TYPES, convertLineToElbow(), dist() (+94 more)
+Cohesion: 0.02
+Nodes (151): actionWrapTextInContainer, CacheKey, ConversionType, convertElementType(), convertElementTypes(), CONVERTIBLE_GENERIC_TYPES, CONVERTIBLE_LINEAR_TYPES, convertLineToElbow() (+143 more)
 
 ### Community 4 - "Packages / Excalidraw 3"
 Cohesion: 0.02
-Nodes (130): actionDuplicateSelection, mouse, ExcalidrawAPISetContext, InitializeApp(), Props, getDataURL(), cloneLibraryItems(), createPasteEvent() (+122 more)
+Nodes (131): actionDuplicateSelection, mouse, ExcalidrawAPISetContext, InitializeApp(), Props, getDataURL(), cloneLibraryItems(), createPasteEvent() (+123 more)
 
 ### Community 5 - "Packages / Excalidraw 4"
 Cohesion: 0.05
-Nodes (45): actionChangeExportBackground, actionChangeExportScale, actionChangeProjectName, actionExportWithDarkMode, actionLoadScene, actionSaveFileToDisk, actionSaveToActiveFile, handleOnExportResult() (+37 more)
+Nodes (46): actionChangeExportBackground, actionChangeExportScale, actionChangeProjectName, actionExportWithDarkMode, actionLoadScene, actionSaveFileToDisk, actionSaveToActiveFile, handleOnExportResult() (+38 more)
 
 ### Community 6 - "Packages / Excalidraw 5"
 Cohesion: 0.02
-Nodes (139): alignActionsPredicate(), areEqual(), getRelevantAppStateProps(), InteractiveCanvasProps, NewElementCanvasProps, areEqual(), getRelevantAppStateProps(), StaticCanvasProps (+131 more)
+Nodes (131): areEqual(), getRelevantAppStateProps(), InteractiveCanvasProps, NewElementCanvasProps, areEqual(), getRelevantAppStateProps(), StaticCanvasProps, AppFooter (+123 more)
 
 ### Community 7 - "Packages / Excalidraw 6"
 Cohesion: 0.01
@@ -1745,32 +1745,32 @@ Cohesion: 0.01
 Nodes (149): labels, actions, addToLibrary, addWatermark, align, alignBottom, alignLeft, alignRight (+141 more)
 
 ### Community 64 - "Types.ts 2"
-Cohesion: 0.03
-Nodes (152): getElementsCorners(), transform(), cartesian2Polar(), degreesToRadians(), isRightAngleRads(), normalizeRadians(), radiansBetweenAngles(), radiansDifference() (+144 more)
+Cohesion: 0.04
+Nodes (123): cartesian2Polar(), degreesToRadians(), normalizeRadians(), radiansBetweenAngles(), radiansDifference(), doBBoxesIntersect(), doLineSegmentsIntersect(), getBBox() (+115 more)
 
 ### Community 65 - "ResizeElements.ts"
-Cohesion: 0.03
-Nodes (192): deleteSelectedElements(), ellipsifyTextToWidth(), wrapOrEllipsifyTextToWidth(), adjustBoundTextSize(), getConvertibleType(), isEligibleLinearElement(), getHints(), getMatchInFrame() (+184 more)
+Cohesion: 0.02
+Nodes (219): deleteSelectedElements(), ellipsifyTextToWidth(), wrapOrEllipsifyTextToWidth(), CombinedExtraActions(), LinearEditorAction(), adjustBoundTextSize(), getConvertibleType(), isEligibleLinearElement() (+211 more)
 
 ### Community 66 - "Binding.ts"
 Cohesion: 0.03
-Nodes (198): focusPointUpdate(), handleFocusPointDrag(), handleFocusPointHover(), handleFocusPointPointerDown(), handleFocusPointPointerUp(), isFocusPointVisible(), maybeHandleArrowPointlikeDrag(), LinearEditorAction() (+190 more)
+Nodes (197): focusPointUpdate(), handleFocusPointDrag(), handleFocusPointHover(), handleFocusPointPointerDown(), handleFocusPointPointerUp(), isFocusPointVisible(), maybeHandleArrowPointlikeDrag(), repairBinding() (+189 more)
 
 ### Community 67 - "DropdownMenu"
 Cohesion: 0.04
-Nodes (47): useExcalidrawAppState(), ButtonIcon, ButtonIconProps, ButtonSeparator(), ElementCanvasButtons(), chevronRight, FontFamilyHeadingIcon, FontFamilyNormalIcon (+39 more)
+Nodes (44): useExcalidrawAppState(), ButtonIcon, ButtonIconProps, ButtonSeparator(), ElementCanvasButtons(), chevronRight, FontFamilyHeadingIcon, FontFamilyNormalIcon (+36 more)
 
 ### Community 68 - "Frame.ts"
-Cohesion: 0.03
-Nodes (86): alignSelectedElements(), actionWrapTextInContainer, pushContainerBelowText(), pushTextAboveContainer(), distributeSelectedElements(), flipElements(), flipSelectedElements(), ObservedAppState (+78 more)
+Cohesion: 0.05
+Nodes (47): alignSelectedElements(), pushContainerBelowText(), pushTextAboveContainer(), distributeSelectedElements(), flipElements(), flipSelectedElements(), bindOrUnbindBindingElements(), generateIndices() (+39 more)
 
 ### Community 69 - "ElbowArrow.ts"
-Cohesion: 0.04
-Nodes (49): actionCopyElementLink, actionLinkToElement, ActionCreator, createRedoAction(), createUndoAction(), executeHistoryAction(), getStylesPanelInfo(), actionToggleShapeSwitch (+41 more)
+Cohesion: 0.05
+Nodes (38): actionCopyElementLink, actionLinkToElement, actionToggleShapeSwitch, ActionManager, trackAction(), shortcutMap, ShortcutName, Action (+30 more)
 
 ### Community 70 - "Collision.ts"
-Cohesion: 0.04
-Nodes (49): activeRoomLinkAtom, CollabAPI, AppSidebar(), Button(), ButtonProps, ButtonColor, ButtonSize, ButtonVariant (+41 more)
+Cohesion: 0.03
+Nodes (69): activeRoomLinkAtom, CollabAPI, AppSidebar(), ButtonColor, ButtonSize, ButtonVariant, FilledButton, FilledButtonProps (+61 more)
 
 ### Community 71 - "App.tsx"
 Cohesion: 0.04
@@ -1778,7 +1778,7 @@ Nodes (47): 0.10.0 (2021-10-13), 0.11.0 (2022-02-17), 0.12.0 (2022-07-07), 0.14.
 
 ### Community 72 - "Utils.ts"
 Cohesion: 0.02
-Nodes (79): zoomToFitBounds(), zoomValueToFitBoundsOnViewport(), getNextActiveTool(), App, get(), getContainerCoords(), UnlockPopup(), SVGStringToFile() (+71 more)
+Nodes (76): zoomToFitBounds(), zoomValueToFitBoundsOnViewport(), getNextActiveTool(), App, get(), SVGStringToFile(), restoreAppState(), CustomStats() (+68 more)
 
 ### Community 73 - "LinearElementEditor.ts"
 Cohesion: 0.25
@@ -1801,8 +1801,8 @@ Cohesion: 0.12
 Nodes (42): renderBarChart(), CARTESIAN_LABEL_ROTATION, CartesianChartLayout, CartesianChartType, commonProps, bgColors, CartesianAxisLabelSpec, chartBaseElements() (+34 more)
 
 ### Community 78 - "TransformHandles.ts"
-Cohesion: 0.09
-Nodes (26): useEditorInterface(), DefaultSidebar, DefaultSidebarTrigger, DefaultTabTriggers(), Ellipsify(), LibraryIcon, PinIcon, LibraryMenu (+18 more)
+Cohesion: 0.05
+Nodes (50): useEditorInterface(), useExcalidrawContainer(), useExcalidrawElements(), Props, Dialog(), DialogProps, DialogSize, getDialogSize() (+42 more)
 
 ### Community 79 - "Constants.ts"
 Cohesion: 0.04
@@ -1813,12 +1813,16 @@ Cohesion: 0.07
 Nodes (41): Dashboard(), UpgradeModal(), useDarkMode(), useIsMobile(), LoginScreen(), Props, VersionHistoryPanel(), createDrawing() (+33 more)
 
 ### Community 81 - "Stats"
-Cohesion: 0.05
-Nodes (60): angleIcon, EraserTrail, AnimatedTrailOptions, Trail, AnimationCallback, AnimationFrameHandler, AnimationTarget, AppState (+52 more)
+Cohesion: 0.03
+Nodes (89): getContainerCoords(), angleIcon, UnlockPopup(), DiagramToCodePlugin(), AnimatedTrailOptions, Trail, AnimationCallback, AnimationFrameHandler (+81 more)
 
 ### Community 82 - "SearchMenu.tsx"
-Cohesion: 0.09
-Nodes (15): AbortError, CANVAS_ERROR_NAMES, CanvasError, ExcalidrawError, ImageSceneDataError, ImageSceneDataErrorCode, RequestError, WorkerErrorCodes (+7 more)
+Cohesion: 0.23
+Nodes (13): alignActionsPredicate(), CombinedShapeProperties(), SelectedShapeActions(), ElementOrToolType, canChangeRoundness(), canHaveArrowheads(), hasBackground(), hasStrokeStyle() (+5 more)
+
+### Community 83 - "Delta.ts"
+Cohesion: 0.12
+Nodes (7): createTestHook(), ElementsDelta, isBrave(), CanvasTextMetricsProvider, satisfiesWordInvariant(), isDevEnv(), isTestEnv()
 
 ### Community 84 - "Packages / Utils"
 Cohesion: 0.05
@@ -2305,8 +2309,8 @@ Cohesion: 0.06
 Nodes (34): devDependencies, @babel/preset-env, chai, dotenv, eslint-config-prettier, eslint-config-react-app, eslint-plugin-import, eslint-plugin-prettier (+26 more)
 
 ### Community 205 - "TextMeasurements.ts"
-Cohesion: 0.14
-Nodes (18): doBBoxesIntersect(), doLineSegmentsIntersect(), getBBox(), isLineSegmentTouchingOrCrossingLine(), isPointOnLine(), isPointRightOfLine(), LineSegment, isExcalidrawElement() (+10 more)
+Cohesion: 0.23
+Nodes (11): isExcalidrawElement(), Element, elementPartiallyOverlapsWithOrContainsBBox(), Elements, elementsOverlappingBBox(), getElementRelativePoints(), getMinMaxPoints(), getNonLinearElementRelativePoints() (+3 more)
 
 ### Community 206 - "Packages / Element"
 Cohesion: 0.06
@@ -2554,7 +2558,7 @@ Nodes (7): Debug, deepEqual(), getAvgFrameTime(), lessPrecise(), PromisePool, TP
 
 ### Community 267 - "Packages / Excalidraw 238"
 Cohesion: 0.03
-Nodes (98): actionToggleViewMode, canChangeBackgroundColor(), canChangeStrokeColor(), CombinedArrowProperties(), CombinedTextProperties(), CompactShapeActions(), ExitViewModeButton(), ExitZenModeButton() (+90 more)
+Nodes (92): actionToggleViewMode, canChangeBackgroundColor(), canChangeStrokeColor(), CombinedArrowProperties(), CombinedTextProperties(), CompactShapeActions(), ExitViewModeButton(), ExitZenModeButton() (+84 more)
 
 ### Community 268 - "Packages / Common"
 Cohesion: 0.07
@@ -2818,7 +2822,7 @@ Nodes (26): browserslist, development, production, bugs, default, dependencies, 
 
 ### Community 333 - "Packages / Excalidraw 298"
 Cohesion: 0.02
-Nodes (101): actionSetEmbeddableAsActiveTool, actionRemoveAllElementsFromFrame, actionSelectAllElementsInFrame, actionSetFrameAsActiveTool, actionupdateFrameRendering, actionWrapSelectionInFrame, isSingleFrameSelected(), AppContext (+93 more)
+Nodes (91): actionSetEmbeddableAsActiveTool, actionRemoveAllElementsFromFrame, actionSelectAllElementsInFrame, actionSetFrameAsActiveTool, actionupdateFrameRendering, actionWrapSelectionInFrame, isSingleFrameSelected(), ActionCreator (+83 more)
 
 ### Community 334 - "Community 334"
 Cohesion: 0.08
@@ -4012,10 +4016,6 @@ Nodes (19): copyPngToClipboard, exportToPng, exportToSvg, imageExportDialog, but
 Cohesion: 0.10
 Nodes (4): getDefaultObservedAppState(), getObservedAppState(), Store, StoreDelta
 
-### Community 633 - "Community 633"
-Cohesion: 0.13
-Nodes (8): Collab, createTestHook(), importUsernameFromLocalStorage(), isBrave(), CanvasTextMetricsProvider, satisfiesWordInvariant(), isDevEnv(), isTestEnv()
-
 ### Community 634 - "Packages / Excalidraw 586"
 Cohesion: 0.11
 Nodes (17): browserslist, development, production, bugs, description, files, homepage, keywords (+9 more)
@@ -4284,13 +4284,9 @@ Nodes (16): stats, angle, elementProperties, fullTitle, generalStats, height, sc
 Cohesion: 0.12
 Nodes (16): stats, angle, elementProperties, fullTitle, generalStats, height, scene, selected (+8 more)
 
-### Community 702 - "Visualdebug.ts"
-Cohesion: 0.08
-Nodes (22): AppFooter, DebugCanvas, DebugCanvasProps, DebugFooter(), debugFrameData(), _debugRenderer(), isVisualDebuggerEnabled(), loadSavedDebugState() (+14 more)
-
 ### Community 703 - "TTDDialog / Utils 2"
-Cohesion: 0.03
-Nodes (77): LibraryItemIcon(), useExcalidrawContainer(), useExcalidrawElements(), CheckboxItem(), Props, Dialog(), DialogProps, DialogSize (+69 more)
+Cohesion: 0.04
+Nodes (52): LibraryItemIcon(), DialogActionButtonProps, DotsIcon, ExportIcon, PlusIcon, publishIcon, LibraryMenuContent, usePendingElementsMemo() (+44 more)
 
 ### Community 704 - "Packages / Excalidraw 645"
 Cohesion: 0.19
@@ -4789,8 +4785,8 @@ Cohesion: 0.20
 Nodes (9): boldIf(), coverages, crowdinMap, flags, fs, languages, percentages, printRow() (+1 more)
 
 ### Community 829 - "Community 829"
-Cohesion: 0.15
-Nodes (10): flattenOptions(), getNavigationRows(), IconPicker(), moreOptionsAtom, Option, Picker(), PickerSection, collapseDownIcon (+2 more)
+Cohesion: 0.06
+Nodes (29): Button(), ButtonProps, flattenOptions(), getNavigationRows(), IconPicker(), moreOptionsAtom, Option, Picker() (+21 more)
 
 ### Community 830 - ".eslintrc.json"
 Cohesion: 0.20
@@ -6967,14 +6963,14 @@ Nodes (3): Excalidraw Library, Features, Fixes
 ## Knowledge Gaps
 - **27937 isolated node(s):** `setupTasks`, `name`, `command`, `runAtStart`, `name` (+27932 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **55 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **56 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ExcalidrawElement` connect `Stats` to `Packages / Excalidraw`, `Excalidraw app / Data`, `Types.ts`, `Packages / Excalidraw 3`, `Packages / Excalidraw 4`, `Packages / Excalidraw 5`, `Packages / Excalidraw 238`, `Packages / Excalidraw 527`, `Packages / Excalidraw 762`, `Visualdebug.ts`, `TTDDialog / Utils 2`, `Types.ts 2`, `ResizeElements.ts`, `Binding.ts`, `Frame.ts`, `ElbowArrow.ts`, `Utils.ts`, `ColorPicker`, `Packages / Excalidraw 64`, `Packages / Excalidraw 298`, `TextMeasurements.ts`, `Constants.ts`?**
+- **Why does `ExcalidrawElement` connect `Stats` to `Packages / Excalidraw`, `Excalidraw app / Data`, `Types.ts`, `Packages / Excalidraw 3`, `Packages / Excalidraw 4`, `Packages / Excalidraw 5`, `Packages / Excalidraw 238`, `Packages / Excalidraw 527`, `Packages / Excalidraw 762`, `TTDDialog / Utils 2`, `Types.ts 2`, `ResizeElements.ts`, `Binding.ts`, `Frame.ts`, `ElbowArrow.ts`, `Collision.ts`, `Utils.ts`, `ColorPicker`, `Packages / Excalidraw 64`, `Packages / Excalidraw 298`, `TransformHandles.ts`, `Constants.ts`, `TextMeasurements.ts`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._
-- **Why does `AppState` connect `Stats` to `Packages / Excalidraw`, `Excalidraw app / Data`, `Packages / Excalidraw 3`, `Packages / Excalidraw 4`, `Packages / Excalidraw 5`, `Packages / Excalidraw 238`, `Visualdebug.ts`, `TTDDialog / Utils 2`, `Types.ts 2`, `ResizeElements.ts`, `Binding.ts`, `Frame.ts`, `ElbowArrow.ts`, `Utils.ts`, `ColorPicker`, `Packages / Excalidraw 64`, `Packages / Excalidraw 298`, `TransformHandles.ts`, `Constants.ts`, `FilledButton.tsx`?**
+- **Why does `AppState` connect `Stats` to `Packages / Excalidraw`, `Excalidraw app / Data`, `Binding.ts`, `Types.ts`, `Packages / Excalidraw 3`, `ElbowArrow.ts`, `Packages / Excalidraw 4`, `Packages / Excalidraw 5`, `Utils.ts`, `ResizeElements.ts`, `Frame.ts`, `ColorPicker`, `Packages / Excalidraw 238`, `Packages / Excalidraw 298`, `TransformHandles.ts`, `Packages / Excalidraw 64`, `Constants.ts`, `FilledButton.tsx`?**
   _High betweenness centrality (0.001) - this node is a cross-community bridge._
 - **Why does `labels` connect `Packages / Excalidraw 6` to `Packages / Excalidraw 1065`, `Packages / Excalidraw 123`, `Packages / Excalidraw 1136`, `Packages / Excalidraw 1137`, `Packages / Excalidraw 855`?**
   _High betweenness centrality (0.001) - this node is a cross-community bridge._
@@ -6985,4 +6981,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `Packages / Excalidraw` be split into smaller, more focused modules?**
   _Cohesion score 0.01613241148124869 - nodes in this community are weakly interconnected._
 - **Should `Excalidraw app / Data` be split into smaller, more focused modules?**
-  _Cohesion score 0.01883289124668435 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.01948586287482308 - nodes in this community are weakly interconnected._

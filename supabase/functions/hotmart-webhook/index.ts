@@ -81,18 +81,22 @@ Deno.serve(async (req) => {
   const purchase = data?.purchase as Record<string, unknown> | undefined;
 
   const buyerEmail = buyer?.email as string | undefined;
-  const transaction = (purchase?.transaction ?? purchase?.order_string) as string | undefined;
   const purchaseStatus = purchase?.status as string | undefined;
 
   // ── Subscription details (period / price / next charge) ──────────────────────
+  // Hotmart's payload layout varies by event: PURCHASE_* nest data under
+  // data.purchase, while SUBSCRIPTION_* events put fields at data root and use
+  // data.subscriber. Read from every known location so both shapes work.
   const subscription = data?.subscription as Record<string, unknown> | undefined;
   const plan = subscription?.plan as Record<string, unknown> | undefined;
-  const subscriber = subscription?.subscriber as Record<string, unknown> | undefined;
+  const subscriber = (data?.subscriber ?? subscription?.subscriber) as Record<string, unknown> | undefined;
   const price = purchase?.price as Record<string, unknown> | undefined;
+
+  const transaction = (purchase?.transaction ?? purchase?.order_string ?? subscriber?.code) as string | undefined;
 
   const planName = String(plan?.name ?? "").toLowerCase();
   // date_next_charge comes as epoch milliseconds; it's the natural expiry anchor
-  const dateNextCharge = Number(purchase?.date_next_charge ?? 0) || 0;
+  const dateNextCharge = Number(purchase?.date_next_charge ?? data?.date_next_charge ?? 0) || 0;
 
   // Derive period from plan name, falling back to the gap until the next charge
   let planPeriod: "monthly" | "annual" | null = null;
@@ -117,7 +121,8 @@ Deno.serve(async (req) => {
     proEndsAt = new Date(d.getTime() + GRACE_MS).toISOString();
   }
 
-  const planPrice = price?.value != null ? Number(price.value) : null;
+  const rawPrice = price?.value ?? data?.actual_recurrence_value;
+  const planPrice = rawPrice != null ? Number(rawPrice) : null;
   const planCurrency = (price?.currency_value ?? price?.currency_code ?? null) as string | null;
   const subscriberCode = (subscriber?.code ?? null) as string | null;
 
