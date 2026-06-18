@@ -1,6 +1,6 @@
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 export const FROM_EMAIL = "EduDraw <hola@edudraw.chatea.click>";
-export const SITE_URL = "https://edudraw.chatea.click";
+export const SITE_URL = "https://edudraw.online";
 export const HOTMART_URL = "https://pay.hotmart.com/E105478979P";
 
 export const sendEmail = async (to: string, subject: string, html: string) => {
@@ -44,7 +44,7 @@ export const emailLayout = (content: string) => `<!DOCTYPE html>
         <tr><td style="padding:36px 40px 28px;">${content}</td></tr>
         <tr>
           <td style="background:#fafafa;border-top:1px solid #f0eeff;padding:18px 40px;text-align:center;">
-            <p style="margin:0;font-size:12px;color:#bbb;">© 2026 EduDraw · <a href="${SITE_URL}" style="color:#6128ff;text-decoration:none;">edudraw.chatea.click</a></p>
+            <p style="margin:0;font-size:12px;color:#bbb;">© 2026 EduDraw · <a href="${SITE_URL}" style="color:#6128ff;text-decoration:none;">edudraw.online</a></p>
           </td>
         </tr>
       </table>

@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       event_time:    Math.floor(Date.now() / 1000),
       event_id:      eventId ?? `capi-${Date.now()}`,
       action_source: "website",
-      event_source_url: userData.pageUrl ?? "https://edudraw.chatea.click",
+      event_source_url: userData.pageUrl ?? "https://edudraw.online",
       user_data:     ud,
       custom_data:   Object.keys(customData).length > 0 ? customData : undefined,
     }],

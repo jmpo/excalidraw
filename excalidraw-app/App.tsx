@@ -2170,7 +2170,7 @@ const ExcalidrawAppInner = () => {
         setGuestTool(tool);
         trackGuestSessionStart(tool).catch(() => {});
       };
-      const exitGuest = () => { window.location.href = "https://edudraw.chatea.click"; };
+      const exitGuest = () => { window.location.href = "https://edudraw.online"; };
 
       // ── Tool picker ──────────────────────────────────────────────────────────
       if (!guestTool) {

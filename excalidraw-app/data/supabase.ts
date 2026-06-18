@@ -76,7 +76,7 @@ export const signUpWithEmail = (email: string, password: string) =>
 
 export const signOut = async (opts?: { scope?: "global" | "local" | "others" }) => {
   await supabase.auth.signOut(opts);
-  window.location.href = "https://edudraw.chatea.click";
+  window.location.href = "https://edudraw.online";
 };
 
 export const resetPasswordForEmail = (email: string) =>

@@ -21,7 +21,7 @@ async function sendCapiEvent(email: string, eventName: string, customData?: Reco
           event_time: Math.floor(Date.now() / 1000),
           event_id: `hotmart-${Date.now()}`,
           action_source: "website",
-          event_source_url: "https://edudraw.chatea.click",
+          event_source_url: "https://edudraw.online",
           user_data: { em: [await sha256(email)] },
           custom_data: customData,
         }],
