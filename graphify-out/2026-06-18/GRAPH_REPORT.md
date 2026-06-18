@@ -1,7 +1,7 @@
 # Graph Report - excali draw saas  (2026-06-18)
 
 ## Corpus Check
-- 825 files · ~906,086 words
+- 825 files · ~906,132 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `04c68bef`
+- Built from commit: `106caff3`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -6970,7 +6970,7 @@ Cohesion: 0.15
 Nodes (16): zoomToFitBounds(), zoomValueToFitBoundsOnViewport(), getNextActiveTool(), restoreAppState(), getNormalizedGridSize(), getNormalizedGridStep(), getNormalizedZoom(), centerScrollOn() (+8 more)
 
 ## Knowledge Gaps
-- **27937 isolated node(s):** `Stats`, `RecentUser`, `GuestRow`, `supabaseUrl`, `supabaseAnonKey` (+27932 more)
+- **27937 isolated node(s):** `supabaseAdmin`, `EXPECTED_HOTTOK`, `PAID_EVENTS`, `PAUSED_EVENTS`, `Stats` (+27932 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **55 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -6985,7 +6985,7 @@ _Questions this graph is uniquely positioned to answer:_
   _High betweenness centrality (0.001) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `t()` (e.g. with `exportCanvas()` and `exportToBackend()`) actually correct?**
   _`t()` has 4 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `Stats`, `RecentUser`, `GuestRow` to the rest of the system?**
+- **What connects `supabaseAdmin`, `EXPECTED_HOTTOK`, `PAID_EVENTS` to the rest of the system?**
   _27937 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Packages / Excalidraw` be split into smaller, more focused modules?**
   _Cohesion score 0.01842488316862024 - nodes in this community are weakly interconnected._

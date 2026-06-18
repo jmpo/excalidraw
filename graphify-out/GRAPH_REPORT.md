@@ -1,7 +1,7 @@
 # Graph Report - excali draw saas  (2026-06-18)
 
 ## Corpus Check
-- 825 files · ~906,132 words
+- 826 files · ~906,320 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `106caff3`
+- Built from commit: `4d3a8a6c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
