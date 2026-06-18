@@ -255,9 +255,9 @@
     "semantic_hash": "f27713e61aaa244f63764b64c0a71d98"
   },
   "excalidraw-app/components/AdminPanel.tsx": {
-    "mtime": 1777046037.3794668,
-    "ast_hash": "9b042ac301573ab39bfaf97e965780c2",
-    "semantic_hash": "9b042ac301573ab39bfaf97e965780c2"
+    "mtime": 1781807886.0540853,
+    "ast_hash": "d8764190ee20cba951991fcef2ae218b",
+    "semantic_hash": ""
   },
   "excalidraw-app/components/AppFooter.tsx": {
     "mtime": 1776643222.3269136,
@@ -430,8 +430,8 @@
     "semantic_hash": "bffb2ea7f480d9c366c0f57d61650ca7"
   },
   "excalidraw-app/data/supabase.ts": {
-    "mtime": 1781806249.772387,
-    "ast_hash": "5bc6df31ce37563792f63e609acb8477",
+    "mtime": 1781807872.764915,
+    "ast_hash": "b49e78cbf2b875fc1d3c9466f5e5b222",
     "semantic_hash": ""
   },
   "excalidraw-app/data/tabSync.ts": {
@@ -3725,8 +3725,8 @@
     "semantic_hash": "0a57b84c5587dcd5b580199bc453f568"
   },
   "supabase/functions/hotmart-webhook/index.ts": {
-    "mtime": 1781806273.7129335,
-    "ast_hash": "2de7b26552e2b04c26d543ced9c300de",
+    "mtime": 1781808811.5015745,
+    "ast_hash": "779b1c2380590f2202c189cb42e0a534",
     "semantic_hash": ""
   },
   "supabase/functions/meta-capi/index.ts": {
@@ -4732,6 +4732,21 @@
   "public/screenshots/wireframe.png": {
     "mtime": 1776643222.6134255,
     "ast_hash": "294fb98583d2c1e1fbba6cc908f1a6a2",
+    "semantic_hash": ""
+  },
+  "supabase/.temp/linked-project.json": {
+    "mtime": 1781806755.763934,
+    "ast_hash": "b7dfb3e280e6b093ae91edadb7b6efa4",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260618120000_subscription_plans.sql": {
+    "mtime": 1781807806.6116538,
+    "ast_hash": "8cadb4ac174a7bda9940d7f405ff48a0",
+    "semantic_hash": ""
+  },
+  "supabase/migrations/20260618130000_pending_activations.sql": {
+    "mtime": 1781808783.6451485,
+    "ast_hash": "c1019d0c8bad44857db7bf208b70be21",
     "semantic_hash": ""
   }
 }

@@ -20,13 +20,24 @@ export type Profile = {
   use_case: string | null;
   plan: Plan;
   trial_ends_at: string | null;
+  pro_ends_at: string | null;
+  plan_period: "monthly" | "annual" | null;
+  plan_price: number | null;
+  plan_currency: string | null;
   onboarding_done: boolean;
   created_at: string;
 };
 
-export const getEffectivePlan = (profile: Pick<Profile, "plan" | "trial_ends_at">): Plan => {
+export const getEffectivePlan = (
+  profile: Pick<Profile, "plan" | "trial_ends_at" | "pro_ends_at">,
+): Plan => {
   if (profile.plan === "trial" && profile.trial_ends_at) {
     if (new Date(profile.trial_ends_at) < new Date()) return "free";
+  }
+  // Subscription Pro that lapsed (pro_ends_at set and past) → paused.
+  // Manual permanent grants have pro_ends_at null and never expire here.
+  if (profile.plan === "pro" && profile.pro_ends_at) {
+    if (new Date(profile.pro_ends_at) < new Date()) return "paused";
   }
   return profile.plan;
 };
@@ -438,9 +449,11 @@ export const adminSetPlan = async (
     plan === "trial"
       ? new Date(Date.now() + (trialDays ?? 7) * 86400000).toISOString()
       : null;
+  // Manual override clears the subscription expiry: a manual Pro grant is
+  // permanent (pro_ends_at null), so the pause-expired-pro cron never touches it.
   const { error } = await supabase
     .from("profiles")
-    .update({ plan, trial_ends_at })
+    .update({ plan, trial_ends_at, pro_ends_at: null, plan_period: null })
     .eq("id", userId);
   if (error) throw error;
 };

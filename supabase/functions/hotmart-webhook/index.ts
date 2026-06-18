@@ -84,7 +84,44 @@ Deno.serve(async (req) => {
   const transaction = (purchase?.transaction ?? purchase?.order_string) as string | undefined;
   const purchaseStatus = purchase?.status as string | undefined;
 
-  console.log(`Hotmart event: ${event} | status: ${purchaseStatus} | email: ${buyerEmail}`);
+  // ── Subscription details (period / price / next charge) ──────────────────────
+  const subscription = data?.subscription as Record<string, unknown> | undefined;
+  const plan = subscription?.plan as Record<string, unknown> | undefined;
+  const subscriber = subscription?.subscriber as Record<string, unknown> | undefined;
+  const price = purchase?.price as Record<string, unknown> | undefined;
+
+  const planName = String(plan?.name ?? "").toLowerCase();
+  // date_next_charge comes as epoch milliseconds; it's the natural expiry anchor
+  const dateNextCharge = Number(purchase?.date_next_charge ?? 0) || 0;
+
+  // Derive period from plan name, falling back to the gap until the next charge
+  let planPeriod: "monthly" | "annual" | null = null;
+  if (/(anual|annual|year|año|ano|yearly)/.test(planName)) {
+    planPeriod = "annual";
+  } else if (/(mensual|monthly|mes|month)/.test(planName)) {
+    planPeriod = "monthly";
+  } else if (dateNextCharge) {
+    planPeriod = (dateNextCharge - Date.now()) / 86_400_000 > 180 ? "annual" : "monthly";
+  }
+
+  // Pro expires at next charge + 3-day grace (covers Hotmart's retry window).
+  // If Hotmart didn't send date_next_charge, compute from the period.
+  const GRACE_MS = 3 * 86_400_000;
+  let proEndsAt: string | null = null;
+  if (dateNextCharge) {
+    proEndsAt = new Date(dateNextCharge + GRACE_MS).toISOString();
+  } else {
+    const d = new Date();
+    if (planPeriod === "annual") d.setFullYear(d.getFullYear() + 1);
+    else d.setMonth(d.getMonth() + 1);
+    proEndsAt = new Date(d.getTime() + GRACE_MS).toISOString();
+  }
+
+  const planPrice = price?.value != null ? Number(price.value) : null;
+  const planCurrency = (price?.currency_value ?? price?.currency_code ?? null) as string | null;
+  const subscriberCode = (subscriber?.code ?? null) as string | null;
+
+  console.log(`Hotmart event: ${event} | status: ${purchaseStatus} | email: ${buyerEmail} | period: ${planPeriod} | next: ${dateNextCharge}`);
 
   if (!buyerEmail) {
     return ok({ reason: "no buyer email" });
@@ -114,9 +151,82 @@ Deno.serve(async (req) => {
     .limit(1);
 
   if (profileError || !profiles || profiles.length === 0) {
-    // User hasn't registered yet — store pending activation so we can handle via admin
-    console.warn(`No profile for email: ${buyerEmail} — event: ${effectiveEvent}`);
-    return ok({ reason: "user not found" });
+    // Buyer paid before having an account (direct purchase).
+    if (PAUSED_EVENTS.has(effectiveEvent)) {
+      // Cancellation/refund before signup → drop any pending purchase.
+      await supabaseAdmin.from("pending_activations").delete().eq("email", buyerEmail);
+      console.log(`No profile + paused event → pending cleared for ${buyerEmail}`);
+      return ok({ reason: "no profile, pending removed" });
+    }
+
+    // Store the purchase as a pending activation (safety net + data store).
+    await supabaseAdmin.from("pending_activations").upsert({
+      email: buyerEmail,
+      plan: "pro",
+      plan_period: planPeriod,
+      pro_ends_at: proEndsAt,
+      plan_price: planPrice,
+      plan_currency: planCurrency,
+      hotmart_subscriber: subscriberCode,
+      hotmart_transaction: transaction ?? null,
+    });
+
+    // Frictionless access: auto-create the account (Pro is granted by the
+    // handle_new_user trigger reading the pending row) and email a "set your
+    // password" link. Clicking it fires PASSWORD_RECOVERY in the app → the buyer
+    // sets a password once and can log in normally from then on.
+    const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      email: buyerEmail,
+      email_confirm: true,
+    });
+    if (createErr && !/already|registered|exists/i.test(createErr.message)) {
+      console.error("Auto-provision failed:", createErr.message);
+    }
+
+    let loginLink = "https://app.edudraw.online";
+    const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+      type: "recovery",
+      email: buyerEmail,
+      options: { redirectTo: "https://app.edudraw.online/?reset_password=1" },
+    });
+    if (linkErr) {
+      console.warn("generateLink failed:", linkErr.message);
+    } else if (linkData?.properties?.action_link) {
+      loginLink = linkData.properties.action_link;
+    }
+
+    await sendCapiEvent(buyerEmail, "Purchase", {
+      value: planPrice ?? 64.9,
+      currency: planCurrency ?? "USD",
+    });
+
+    await sendEmail(
+      buyerEmail,
+      "¡Tu acceso Pro a EduDraw está listo! ⭐ Creá tu contraseña",
+      emailLayout(`
+        <h1 style="margin:0 0 12px;font-size:21px;font-weight:800;color:#1a1a2e;">¡Gracias por tu compra! 🎉</h1>
+        <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.6;">
+          Ya creamos tu cuenta Pro. Hacé click para <strong>definir tu contraseña</strong> y entrar.
+          Con ella vas a poder ingresar siempre que quieras.
+        </p>
+        ${btnPrimary(loginLink, "Crear contraseña y entrar →")}
+        <p style="margin:0 0 16px;font-size:13px;color:#888;line-height:1.6;">
+          Tu cuenta está asociada al email <strong>${buyerEmail}</strong>. Usá siempre ese email y tu contraseña para ingresar en <a href="https://app.edudraw.online" style="color:#6128ff;text-decoration:none;">app.edudraw.online</a>.
+        </p>
+        <table cellpadding="0" cellspacing="0" width="100%" style="background:#f0fdf4;border-radius:10px;border-left:4px solid #22c55e;padding:16px 22px;margin-bottom:20px;">
+          <tr><td>
+            <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.8px;">Tu plan Pro incluye</p>
+            <p style="margin:0 0 6px;font-size:14px;color:#166534;">✅ &nbsp;Dibujos y mapas mentales ilimitados</p>
+            <p style="margin:0 0 6px;font-size:14px;color:#166534;">✅ &nbsp;Asistente de IA incluido</p>
+            <p style="margin:0;font-size:14px;color:#166534;">✅ &nbsp;Exportación HD</p>
+          </td></tr>
+        </table>
+        <p style="margin:0;font-size:13px;color:#aaa;">¿Algún problema para entrar? Respondé este email y te ayudamos.</p>
+      `),
+    );
+
+    console.log(`✅ Direct purchase provisioned + magic link sent: ${buyerEmail}`);
+    return ok({ reason: "auto-provisioned", email: buyerEmail });
   }
 
   const userId = profiles[0].id as string;
@@ -127,6 +237,11 @@ Deno.serve(async (req) => {
       .update({
         plan: "pro",
         trial_ends_at: null,
+        pro_ends_at: proEndsAt,
+        plan_period: planPeriod,
+        plan_price: planPrice,
+        plan_currency: planCurrency,
+        hotmart_subscriber: subscriberCode,
         hotmart_transaction: transaction ?? null,
       })
       .eq("id", userId);
@@ -140,8 +255,16 @@ Deno.serve(async (req) => {
     }
     console.log(`✅ Pro activated for ${buyerEmail}`);
 
-    // CAPI Purchase event
-    await sendCapiEvent(buyerEmail, "Purchase", { value: 64.9, currency: "USD" });
+    // CAPI Purchase event (use the real paid amount when available)
+    await sendCapiEvent(buyerEmail, "Purchase", {
+      value: planPrice ?? 64.9,
+      currency: planCurrency ?? "USD",
+    });
+
+    const periodLabel = planPeriod === "annual" ? "anual" : planPeriod === "monthly" ? "mensual" : null;
+    const renewLine = proEndsAt
+      ? `Tu plan ${periodLabel ? `<strong>${periodLabel}</strong> ` : ""}se renueva automáticamente. Próxima renovación: <strong>${new Date(proEndsAt).toLocaleDateString("es-AR")}</strong>.`
+      : "Ya tenés acceso completo a todas las funciones de EduDraw.";
 
     // Send payment confirmation email
     await sendEmail(
@@ -150,7 +273,7 @@ Deno.serve(async (req) => {
       emailLayout(`
         <h1 style="margin:0 0 12px;font-size:21px;font-weight:800;color:#1a1a2e;">¡Bienvenido/a al plan Pro! 🎉</h1>
         <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.6;">
-          Tu pago fue procesado exitosamente. Ya tenés acceso completo y permanente a todas las funciones de EduDraw.
+          Tu pago fue procesado exitosamente. ${renewLine}
         </p>
         ${btnPrimary(SITE_URL, "Ir a mis dibujos →")}
         <table cellpadding="0" cellspacing="0" width="100%" style="background:#f0fdf4;border-radius:10px;border-left:4px solid #22c55e;padding:16px 22px;margin-bottom:20px;">
@@ -159,7 +282,7 @@ Deno.serve(async (req) => {
             <p style="margin:0 0 6px;font-size:14px;color:#166534;">✅ &nbsp;Dibujos y mapas mentales ilimitados</p>
             <p style="margin:0 0 6px;font-size:14px;color:#166534;">✅ &nbsp;Asistente de IA incluido</p>
             <p style="margin:0 0 6px;font-size:14px;color:#166534;">✅ &nbsp;Exportación HD</p>
-            <p style="margin:0;font-size:14px;color:#166534;">✅ &nbsp;Acceso permanente sin preocupaciones</p>
+            <p style="margin:0;font-size:14px;color:#166534;">✅ &nbsp;Soporte prioritario</p>
           </td></tr>
         </table>
         <p style="margin:0;font-size:13px;color:#aaa;">¿Tenés alguna pregunta? Respondé este email y te ayudamos.</p>

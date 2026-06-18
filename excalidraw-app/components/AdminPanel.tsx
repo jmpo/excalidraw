@@ -117,6 +117,9 @@ const UserDetailModal = ({
             { label: "📐 Dibujos", value: String(user.drawing_count) },
             { label: "📅 Registrado", value: fmtDate(user.created_at) },
             { label: "⏱ Trial hasta", value: user.trial_ends_at ? fmtDate(user.trial_ends_at) : "—" },
+            { label: "🔄 Período", value: user.plan_period === "annual" ? "Anual" : user.plan_period === "monthly" ? "Mensual" : "—" },
+            { label: "⭐ Pro vence", value: user.pro_ends_at ? fmtDate(user.pro_ends_at) : (user.plan === "pro" ? "Permanente" : "—") },
+            { label: "💰 Precio", value: user.plan_price != null ? `${user.plan_currency ?? ""} ${user.plan_price}`.trim() : "—" },
           ].map(({ label, value }) => (
             <div key={label} style={{ background: "#f8f7ff", borderRadius: 8, padding: "10px 14px" }}>
               <div style={{ fontSize: 11, color: "#999", marginBottom: 3 }}>{label}</div>
