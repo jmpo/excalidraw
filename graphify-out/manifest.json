@@ -4798,5 +4798,10 @@
     "mtime": 1781831365.990645,
     "ast_hash": "6397aa08b6778ad030f8c3c02d6c2e05",
     "semantic_hash": ""
+  },
+  "supabase/migrations/20260618180000_cleanup_test5.sql": {
+    "mtime": 1781831923.1751144,
+    "ast_hash": "b0e1b448adcba01dcc2c36e69f152596",
+    "semantic_hash": ""
   }
 }
