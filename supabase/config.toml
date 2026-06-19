@@ -368,6 +368,10 @@ deno_version = 2
 [functions.hotmart-webhook]
 verify_jwt = false
 
+# Resend posts email events here without a Supabase JWT (verified via Svix sig).
+[functions.resend-webhook]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

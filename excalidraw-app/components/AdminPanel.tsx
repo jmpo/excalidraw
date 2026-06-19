@@ -9,10 +9,16 @@ import {
   getEffectivePlan,
   isTrialActive,
   trialDaysLeft,
+  resetPasswordForEmail,
 } from "../data/supabase";
 import type { Drawing } from "../data/supabase";
 import { useAuth } from "../auth/AuthContext";
 import type { AdminProfile, Plan } from "../data/supabase";
+import { FinanceTab } from "./admin/FinanceTab";
+import { EmailsTab } from "./admin/EmailsTab";
+import { WhatsappTab } from "./admin/WhatsappTab";
+import { RecoveryTab } from "./admin/RecoveryTab";
+import { Section } from "./admin/ui";
 
 // ── Plan badge ────────────────────────────────────────────────────────────────
 
@@ -27,11 +33,15 @@ const PlanBadge = ({ profile }: { profile: AdminProfile }) => {
     paused: { bg: "#fee2e2", color: "#991b1b" },
   };
   const c = colors[effective] ?? colors.free;
+  const periodLabel = profile.plan_period === "annual" ? "Anual" : profile.plan_period === "monthly" ? "Mensual" : null;
   return (
     <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
       <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.bg, color: c.color }}>
         {effective.toUpperCase()}
       </span>
+      {effective === "pro" && periodLabel && (
+        <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700, background: "#ede9fe", color: "#5b21b6" }}>{periodLabel}</span>
+      )}
       {trial && (
         <span style={{ fontSize: 11, color: "#92400e" }}>{days}d left</span>
       )}
@@ -89,6 +99,17 @@ const UserDetailModal = ({
     finally { setSaving(false); }
   };
 
+  const sendReset = async () => {
+    setSaving(true);
+    setMsg("");
+    try {
+      const { error } = await resetPasswordForEmail(user.email);
+      if (error) throw error;
+      setMsg("Email de reset enviado ✓");
+    } catch { setMsg("Error al enviar el reset."); }
+    finally { setSaving(false); }
+  };
+
   const effectivePlan = getEffectivePlan(user);
   const trial = isTrialActive(user);
 
@@ -120,6 +141,7 @@ const UserDetailModal = ({
             { label: "🔄 Período", value: user.plan_period === "annual" ? "Anual" : user.plan_period === "monthly" ? "Mensual" : "—" },
             { label: "⭐ Pro vence", value: user.pro_ends_at ? fmtDate(user.pro_ends_at) : (user.plan === "pro" ? "Permanente" : "—") },
             { label: "💰 Precio", value: user.plan_price != null ? `${user.plan_currency ?? ""} ${user.plan_price}`.trim() : "—" },
+            { label: "💳 Último pago", value: user.last_payment_at ? fmtDate(user.last_payment_at) : "—" },
           ].map(({ label, value }) => (
             <div key={label} style={{ background: "#f8f7ff", borderRadius: 8, padding: "10px 14px" }}>
               <div style={{ fontSize: 11, color: "#999", marginBottom: 3 }}>{label}</div>
@@ -162,6 +184,18 @@ const UserDetailModal = ({
               </button>
             ))}
           </div>
+
+          {/* Security actions */}
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#666", margin: "14px 0 6px" }}>
+            Acceso del cliente:
+          </div>
+          <button onClick={sendReset} disabled={saving}
+            style={{
+              padding: "7px 16px", borderRadius: 7, border: "none", fontSize: 12, fontWeight: 700,
+              cursor: "pointer", background: "#ede9fe", color: "#5b21b6",
+            }}>
+            🔑 Enviar reset de contraseña
+          </button>
         </div>
 
         {msg && (
@@ -230,8 +264,6 @@ const UserDetailModal = ({
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-const PRO_PRICE = 64.9; // USD — update if price changes
 
 type Stats = {
   totalUsers: number;
@@ -316,18 +348,18 @@ const StatCard = ({
       display: "flex",
       flexDirection: "column",
       gap: 6,
-      boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+      border: "1px solid #ececf3", boxShadow: "0 1px 2px rgba(16,24,40,0.05)",
       borderTop: `3px solid ${color}`,
       minWidth: 160,
       flex: 1,
     }}
   >
     <div style={{ fontSize: 22 }}>{icon}</div>
-    <div style={{ fontSize: 28, fontWeight: 800, color: "#1a1a2e" }}>
+    <div style={{ fontSize: 28, fontWeight: 800, color: "#111827", letterSpacing: -0.5 }}>
       {fmt(Number(value))}
     </div>
-    <div style={{ fontSize: 13, fontWeight: 600, color: "#444" }}>{label}</div>
-    {sub && <div style={{ fontSize: 11, color: "#999" }}>{sub}</div>}
+    <div style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{label}</div>
+    {sub && <div style={{ fontSize: 11, color: "#9ca3af" }}>{sub}</div>}
   </div>
 );
 
@@ -390,7 +422,7 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
   const [allProfiles, setAllProfiles] = useState<AdminProfile[]>([]);
   const [activeGuests, setActiveGuests] = useState<GuestRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"overview" | "users" | "guests">("overview");
+  const [tab, setTab] = useState<"overview" | "users" | "finance" | "emails" | "whatsapp" | "recovery" | "guests">("overview");
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [selectedUser, setSelectedUser] = useState<AdminProfile | null>(null);
 
@@ -488,6 +520,14 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
       ? Math.round((stats.totalUsers / stats.totalGuests) * 100)
       : 0;
 
+  // Real MRR (USD) from actual captured Hotmart prices — not an estimate.
+  const realMrrUsd = allProfiles.reduce((sum, p) => {
+    if (getEffectivePlan(p) !== "pro" || !p.plan_price || p.plan_price <= 0) return sum;
+    if (p.plan_currency && p.plan_currency !== "USD") return sum; // only USD here
+    const monthly = p.plan_period === "annual" ? p.plan_price / 12 : p.plan_price;
+    return sum + monthly;
+  }, 0);
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (<>
     {selectedUser && (
@@ -538,32 +578,36 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
             <div style={{ fontSize: 12, color: "#999" }}>EduDraw · {user.email}</div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          {(["overview", "users", "guests"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              style={{
-                padding: "7px 16px",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 600,
-                background: tab === t ? "#6128ff" : "#f0eeff",
-                color: tab === t ? "#fff" : "#6128ff",
-                transition: "all 0.15s",
-              }}
-            >
-              {t === "overview" ? "Resumen" : t === "users" ? "Usuarios" : "Guests"}
-            </button>
-          ))}
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 2, background: "#f5f4ff", border: "1px solid #ececf3", borderRadius: 11, padding: 3 }}>
+            {(["overview", "users", "finance", "emails", "whatsapp", "recovery", "guests"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                style={{
+                  padding: "6px 13px",
+                  borderRadius: 8,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                  background: tab === t ? "#fff" : "transparent",
+                  color: tab === t ? "#6128ff" : "#8b8aa3",
+                  boxShadow: tab === t ? "0 1px 2px rgba(16,24,40,0.08)" : "none",
+                  transition: "all 0.15s",
+                }}
+              >
+                {t === "overview" ? "Resumen" : t === "users" ? "Usuarios" : t === "finance" ? "Finanzas" : t === "emails" ? "Emails" : t === "whatsapp" ? "WhatsApp" : t === "recovery" ? "Recuperación" : "Guests"}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => signOut()}
             style={{
               padding: "7px 16px",
-              borderRadius: 8,
-              border: "1px solid #eee",
+              borderRadius: 9,
+              border: "1px solid #ececf3",
               background: "none",
               cursor: "pointer",
               fontSize: 13,
@@ -638,9 +682,9 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
                   />
                   <StatCard
                     icon="💰"
-                    label="MRR estimado"
-                    value={`$${(stats.planCounts.pro * PRO_PRICE).toFixed(0)}`}
-                    sub={`${stats.planCounts.pro} usuarios Pro`}
+                    label="MRR real (US$)"
+                    value={Math.round(realMrrUsd)}
+                    sub="ventas Hotmart · ver Finanzas"
                     color="#059669"
                   />
                 </div>
@@ -678,7 +722,7 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
                       background: "#fff",
                       borderRadius: 14,
                       padding: "24px 28px",
-                      boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+                      border: "1px solid #ececf3", boxShadow: "0 1px 2px rgba(16,24,40,0.05)",
                     }}
                   >
                     <div
@@ -731,7 +775,7 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
                       background: "#fff",
                       borderRadius: 14,
                       padding: "24px 28px",
-                      boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+                      border: "1px solid #ececf3", boxShadow: "0 1px 2px rgba(16,24,40,0.05)",
                     }}
                   >
                     <div
@@ -807,7 +851,7 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
                     background: "#fff",
                     borderRadius: 14,
                     padding: "24px 28px",
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+                    border: "1px solid #ececf3", boxShadow: "0 1px 2px rgba(16,24,40,0.05)",
                   }}
                 >
                   <div
@@ -844,22 +888,21 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
 
             {/* ── Users tab ── */}
             {tab === "users" && (
-              <div style={{ background: "#fff", borderRadius: 14, padding: "24px 28px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
-                  <div style={{ fontWeight: 700, fontSize: 16, color: "#1a1a2e" }}>
-                    Usuarios registrados ({allProfiles.length})
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }}>
+              <Section
+                title={`Usuarios registrados (${allProfiles.length})`}
+                right={
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {(["all", "free", "trial", "pro", "paused"] as const).map((f) => (
                       <button key={f} onClick={() => setPlanFilter(f)}
-                        style={{ padding: "5px 12px", borderRadius: 7, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                        style={{ padding: "5px 12px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
                           background: planFilter === f ? "#6128ff" : "#f0eeff",
                           color: planFilter === f ? "#fff" : "#6128ff" }}>
                         {f === "all" ? "Todos" : f === "free" ? "Expirado" : f.charAt(0).toUpperCase() + f.slice(1)}
                       </button>
                     ))}
                   </div>
-                </div>
+                }
+              >
                 <UserTable
                   onSelect={setSelectedUser}
                   users={planFilter === "all" ? allProfiles : allProfiles.filter((u) => {
@@ -867,7 +910,27 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
                     return planFilter === "paused" ? u.plan === "paused" : ep === planFilter;
                   })}
                 />
-              </div>
+              </Section>
+            )}
+
+            {/* ── Finance tab ── */}
+            {tab === "finance" && (
+              <FinanceTab profiles={allProfiles} />
+            )}
+
+            {/* ── Emails tab ── */}
+            {tab === "emails" && (
+              <EmailsTab />
+            )}
+
+            {/* ── WhatsApp tab ── */}
+            {tab === "whatsapp" && (
+              <WhatsappTab profiles={allProfiles} />
+            )}
+
+            {/* ── Recovery tab ── */}
+            {tab === "recovery" && (
+              <RecoveryTab />
             )}
 
             {/* ── Guests tab ── */}
@@ -881,7 +944,7 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
                   const canvasPct = Math.round((canvasCount / total) * 100);
                   const mindmapPct = Math.round((mindmapCount / total) * 100);
                   return (
-                    <div style={{ background: "#fff", borderRadius: 14, padding: "20px 28px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", marginBottom: 16 }}>
+                    <div style={{ background: "#fff", borderRadius: 14, padding: "20px 28px", border: "1px solid #ececf3", boxShadow: "0 1px 2px rgba(16,24,40,0.05)", marginBottom: 16 }}>
                       <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a2e", marginBottom: 14 }}>
                         📊 Interés por herramienta
                       </div>
@@ -900,12 +963,9 @@ export const AdminPanel = ({ onBack }: { onBack: () => void }) => {
                     </div>
                   );
                 })()}
-                <div style={{ background: "#fff", borderRadius: 14, padding: "24px 28px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
-                  <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20, color: "#1a1a2e" }}>
-                    Sesiones guest recientes ({activeGuests.length})
-                  </div>
+                <Section title={`Sesiones guest recientes (${activeGuests.length})`}>
                   <GuestTable guests={activeGuests} />
-                </div>
+                </Section>
               </>
             )}
           </>
@@ -965,11 +1025,20 @@ const UserTable = ({
             </span>
           </td>
           <td style={{ padding: "10px 12px", color: "#666", fontSize: 12 }}>
-            {u.trial_ends_at ? fmtDate(u.trial_ends_at) : "—"}
+            {u.plan === "pro"
+              ? (u.pro_ends_at ? fmtDate(u.pro_ends_at) : "Permanente")
+              : u.trial_ends_at ? fmtDate(u.trial_ends_at) : "—"}
           </td>
           <td style={{ padding: "10px 12px" }}>
             {u.plan === "pro" ? (
-              <span style={{ fontSize: 11, color: "#059669", fontWeight: 700 }}>∞ Pro</span>
+              u.pro_ends_at ? (() => {
+                const d = Math.ceil((new Date(u.pro_ends_at).getTime() - Date.now()) / 86400000);
+                return d > 0
+                  ? <span style={{ background: d <= 5 ? "#fef9c3" : "#d1fae5", color: d <= 5 ? "#92400e" : "#065f46", padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 12 }}>{d}d</span>
+                  : <span style={{ background: "#fee2e2", color: "#991b1b", padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 12 }}>Vencido</span>;
+              })() : (
+                <span style={{ fontSize: 11, color: "#059669", fontWeight: 700 }}>∞ Pro</span>
+              )
             ) : trialActive ? (
               <span style={{ background: daysLeft <= 2 ? "#fef9c3" : "#dcfce7", color: daysLeft <= 2 ? "#92400e" : "#166534", padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 12 }}>
                 {daysLeft}d

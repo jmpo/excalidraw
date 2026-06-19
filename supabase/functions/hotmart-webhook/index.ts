@@ -54,6 +54,28 @@ const PAUSED_EVENTS = new Set([
   "SUBSCRIPTION_CANCELLATION",
 ]);
 
+// Checkout abandoned (for sales recovery)
+const ABANDONED_EVENTS = new Set([
+  "PURCHASE_OUT_OF_SHOPPING_CART",
+]);
+
+// Extract a usable phone number from the various Hotmart shapes.
+function extractPhone(buyer: Record<string, unknown> | undefined): string | null {
+  if (!buyer) return null;
+  const code = String(buyer.checkout_phone_code ?? "").trim();
+  const num = String(buyer.checkout_phone ?? "").trim();
+  if (num) return (code + num).replace(/[^0-9]/g, "") || null;
+  // Subscription events nest phone as an object
+  const ph = buyer.phone as Record<string, unknown> | undefined;
+  if (ph) {
+    const cell = (String(ph.dddCell ?? "") + String(ph.cell ?? "")).replace(/[^0-9]/g, "");
+    if (cell) return cell;
+    const line = (String(ph.dddPhone ?? "") + String(ph.phone ?? "")).replace(/[^0-9]/g, "");
+    if (line) return line;
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -129,6 +151,12 @@ Deno.serve(async (req) => {
   const planCurrency = (price?.currency_value ?? price?.currency_code ?? null) as string | null;
   const subscriberCode = (subscriber?.code ?? null) as string | null;
 
+  // Fase 0 data capture: phone (for WhatsApp) and payment date (for finance).
+  const buyerPhone = extractPhone(buyer);
+  const buyerName = (buyer?.name as string | undefined) ?? null;
+  const approvedDate = Number(purchase?.approved_date ?? data?.approved_date ?? 0) || 0;
+  const lastPaymentAt = approvedDate ? new Date(approvedDate).toISOString() : new Date().toISOString();
+
   console.log(`Hotmart event: ${event} | status: ${purchaseStatus} | email: ${buyerEmail} | period: ${planPeriod} | next: ${dateNextCharge}`);
 
   if (!buyerEmail) {
@@ -145,6 +173,19 @@ Deno.serve(async (req) => {
       : purchaseStatus === "CANCELED"
       ? "PURCHASE_CANCELED"
       : "");
+
+  // Abandoned checkout → store for sales recovery (no profile work needed).
+  if (ABANDONED_EVENTS.has(effectiveEvent)) {
+    await supabaseAdmin.from("abandoned_carts").insert({
+      email: buyerEmail,
+      name: buyerName,
+      phone: buyerPhone,
+      plan_name: (plan?.name as string) ?? null,
+      hotmart_event: effectiveEvent,
+    });
+    console.log(`🛒 Abandoned cart stored: ${buyerEmail}`);
+    return ok({ reason: "abandoned cart stored", email: buyerEmail });
+  }
 
   if (!PAID_EVENTS.has(effectiveEvent) && !PAUSED_EVENTS.has(effectiveEvent)) {
     console.log(`Ignored event: ${effectiveEvent}`);
@@ -177,6 +218,8 @@ Deno.serve(async (req) => {
       plan_currency: planCurrency,
       hotmart_subscriber: subscriberCode,
       hotmart_transaction: transaction ?? null,
+      phone: buyerPhone,
+      last_payment_at: lastPaymentAt,
     });
 
     // Frictionless access: auto-create the account (Pro is granted by the
@@ -212,18 +255,23 @@ Deno.serve(async (req) => {
   const userId = profiles[0].id as string;
 
   if (PAID_EVENTS.has(effectiveEvent)) {
+    const proUpdate: Record<string, unknown> = {
+      plan: "pro",
+      trial_ends_at: null,
+      pro_ends_at: proEndsAt,
+      plan_period: planPeriod,
+      plan_price: planPrice,
+      plan_currency: planCurrency,
+      hotmart_subscriber: subscriberCode,
+      hotmart_transaction: transaction ?? null,
+      last_payment_at: lastPaymentAt,
+    };
+    // Only overwrite phone if Hotmart actually sent one (don't wipe an existing value).
+    if (buyerPhone) proUpdate.phone = buyerPhone;
+
     const { error } = await supabaseAdmin
       .from("profiles")
-      .update({
-        plan: "pro",
-        trial_ends_at: null,
-        pro_ends_at: proEndsAt,
-        plan_period: planPeriod,
-        plan_price: planPrice,
-        plan_currency: planCurrency,
-        hotmart_subscriber: subscriberCode,
-        hotmart_transaction: transaction ?? null,
-      })
+      .update(proUpdate)
       .eq("id", userId);
 
     if (error) {
@@ -234,6 +282,12 @@ Deno.serve(async (req) => {
       });
     }
     console.log(`✅ Pro activated for ${buyerEmail}`);
+
+    // Mark any abandoned cart for this email as recovered (conversion tracking).
+    await supabaseAdmin.from("abandoned_carts")
+      .update({ recovered: true })
+      .eq("email", buyerEmail)
+      .eq("recovered", false);
 
     // CAPI Purchase event (use the real paid amount when available)
     await sendCapiEvent(buyerEmail, "Purchase", {

@@ -1,4 +1,12 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
+
+// Service-role client used only to log sent emails (never blocks sending).
+const sbLog = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+);
 // Sender must be on a domain VERIFIED in Resend. chatea.click is verified;
 // the edudraw.chatea.click subdomain is NOT (subdomains need separate verification),
 // which is why sends from it were rejected with 403. Use the verified root.
@@ -17,6 +25,18 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
   });
   const result = await res.json();
   console.log(`Email to ${to} [${subject}]:`, res.status, JSON.stringify(result));
+
+  // Log the send (best-effort: must never break the actual email flow).
+  try {
+    await sbLog.from("email_log").insert({
+      recipient: to,
+      subject,
+      resend_id: result?.id ?? null,
+      status: res.ok ? "sent" : "failed",
+      error: res.ok ? null : JSON.stringify(result).slice(0, 500),
+    });
+  } catch (_e) { /* ignore logging errors */ }
+
   return { ok: res.ok, ...result };
 };
 

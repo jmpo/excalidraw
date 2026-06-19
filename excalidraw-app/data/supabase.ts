@@ -24,6 +24,7 @@ export type Profile = {
   plan_period: "monthly" | "annual" | null;
   plan_price: number | null;
   plan_currency: string | null;
+  last_payment_at: string | null;
   onboarding_done: boolean;
   created_at: string;
 };
@@ -483,6 +484,51 @@ export const adminExtendTrial = async (userId: string, days: number) => {
     .update({ plan: "trial", trial_ends_at })
     .eq("id", userId);
   if (error) throw error;
+};
+
+// ── Admin: email log ──────────────────────────────────────────────────────────
+
+export type EmailLogRow = {
+  id: string;
+  recipient: string;
+  subject: string | null;
+  resend_id: string | null;
+  status: string;
+  error: string | null;
+  created_at: string;
+};
+
+export const fetchEmailLog = async (limit = 100): Promise<EmailLogRow[]> => {
+  const { data, error } = await supabase
+    .from("email_log")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as EmailLogRow[];
+};
+
+// ── Admin: abandoned carts (sales recovery) ───────────────────────────────────
+
+export type AbandonedCart = {
+  id: string;
+  email: string | null;
+  name: string | null;
+  phone: string | null;
+  plan_name: string | null;
+  hotmart_event: string | null;
+  recovered: boolean;
+  created_at: string;
+};
+
+export const fetchAbandonedCarts = async (limit = 200): Promise<AbandonedCart[]> => {
+  const { data, error } = await supabase
+    .from("abandoned_carts")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as AbandonedCart[];
 };
 
 
