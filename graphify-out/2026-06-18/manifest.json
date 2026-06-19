@@ -320,9 +320,9 @@
     "semantic_hash": "2a28ba0d73c2436e1121ad9aa627ba77"
   },
   "excalidraw-app/components/LibrarySidebar.tsx": {
-    "mtime": 1777220092.0867813,
-    "ast_hash": "158a31cabfa6b8d2c6d73aec48fabfe0",
-    "semantic_hash": "158a31cabfa6b8d2c6d73aec48fabfe0"
+    "mtime": 1781833711.3017874,
+    "ast_hash": "fc896e5af676d1b13d3c74f3b8b80b33",
+    "semantic_hash": ""
   },
   "excalidraw-app/components/LoginScreen.tsx": {
     "mtime": 1776727788.6924608,
@@ -445,9 +445,9 @@
     "semantic_hash": "2f72f5fea12992fbd01a257e995f0391"
   },
   "excalidraw-app/data/useEduLibrary.ts": {
-    "mtime": 1776864065.0271533,
-    "ast_hash": "5a8300c1ad1419b85a8b34a06393136a",
-    "semantic_hash": "5a8300c1ad1419b85a8b34a06393136a"
+    "mtime": 1781833803.3166351,
+    "ast_hash": "fd180f815b4eda763ed1be5217165302",
+    "semantic_hash": ""
   },
   "excalidraw-app/global.d.ts": {
     "mtime": 1776722761.2173367,
