@@ -43,7 +43,9 @@ const CATEGORIES: {
     match: (n) =>
       ["stick man", "moustache", "girl", "guy", "grandma", "child",
        "shrug", "happy", "sad", "despair", "person", "worker",
-       "walking", "sitting", "standing"].some((k) => n.toLowerCase().includes(k)),
+       "walking", "sitting", "standing", "communication", "presentation",
+       "conversation", "ideation", "listening", "collaboration",
+       "problem solving", "teamwork", "thinking"].some((k) => n.toLowerCase().includes(k)),
   },
   {
     label: "Íconos",
@@ -78,7 +80,43 @@ const CATEGORIES: {
     icon: "📐",
     match: (n) =>
       ["coordinate", "venn", "number line", "sphere", "prism",
-       "parallel", "graph paper"].some((k) => n.toLowerCase().includes(k)),
+       "parallel", "graph paper", "triangle", "pentagon", "hexagon",
+       "octagon", "decagon", "polygon", "square", "circle", "angle",
+       "integral", "sigma", "theta", "sqrt", "fraction", "infinity",
+       "equation", "pi", "degree", "percent", "graph"].some((k) =>
+        n.toLowerCase().includes(k)),
+  },
+  {
+    label: "Ciencias",
+    icon: "🔬",
+    match: (n) =>
+      ["virus", "bacteria", "cell", "brain", "dna", "neuron", "heart",
+       "lung", "plant", "leaf", "flower", "microscope", "atom", "molecule",
+       "periodic", "element", "chemistry", "biology", "organism", "blood"].some((k) =>
+        n.toLowerCase().includes(k)),
+  },
+  {
+    label: "Música",
+    icon: "🎵",
+    match: (n) =>
+      ["music", "guitar", "piano", "drum", "flute", "keyboard", "clef",
+       "instrument", "radio", "trumpet", "violin"].some((k) =>
+        n.toLowerCase().includes(k)),
+  },
+  {
+    label: "Electrónica",
+    icon: "⚡",
+    match: (n) =>
+      ["resistor", "capacitor", "transistor", "diode", "battery", "inductor",
+       "circuit", "schematic", "logic gate", "nand", "nor", "xor", "gate",
+       "led", "switch", "ground"].some((k) => n.toLowerCase().includes(k)),
+  },
+  {
+    label: "Anotaciones",
+    icon: "💬",
+    match: (n) =>
+      ["post-it", "post it", "postit", "sticky", "bubble", "speech",
+       "thought", "callout"].some((k) => n.toLowerCase().includes(k)),
   },
   {
     label: "Negocios",

@@ -2,15 +2,36 @@ import { useEffect } from "react";
 
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
-const EDU_LIBRARY_LOADED_KEY = "edu_library_loaded_v11";
+// Bump this key whenever EXTRA_LIBRARIES changes so existing users reload them.
+const EDU_LIBRARY_LOADED_KEY = "edu_library_loaded_v13";
 
 const EXTRA_LIBRARIES = [
+  // UI / general (existing)
   "https://libraries.excalidraw.com/libraries/g-script/forms.excalidrawlib",
   "https://libraries.excalidraw.com/libraries/ferminrp/awesome-icons.excalidrawlib",
   "https://libraries.excalidraw.com/libraries/excacomp/web-kit.excalidrawlib",
   "https://libraries.excalidraw.com/libraries/anumithaapollo12/emojis.excalidrawlib",
   "https://libraries.excalidraw.com/libraries/h7y/dropdowns.excalidrawlib",
   "https://libraries.excalidraw.com/libraries/dwelle/despair.excalidrawlib",
+  // ── Education packs for teachers ──────────────────────────────────────────
+  // Math & geometry
+  "https://libraries.excalidraw.com/libraries/https-github-com-ytrkptl/math-teacher-library.excalidrawlib",
+  "https://libraries.excalidraw.com/libraries/jjadup/mathematical-symbols.excalidrawlib",
+  "https://libraries.excalidraw.com/libraries/lipis/polygons.excalidrawlib",
+  // Science
+  "https://libraries.excalidraw.com/libraries/sharathsanketh/biology.excalidrawlib",
+  "https://libraries.excalidraw.com/libraries/gabi-as-cosmos/periodic-table.excalidrawlib",
+  // Music
+  "https://libraries.excalidraw.com/libraries/l8y/music-instruments.excalidrawlib",
+  // Physics / electronics / CS
+  "https://libraries.excalidraw.com/libraries/rkjc/schematic-symbols.excalidrawlib",
+  "https://libraries.excalidraw.com/libraries/thebrahmnicboy/Logic-Gates.excalidrawlib",
+  // Classroom annotations
+  "https://libraries.excalidraw.com/libraries/ferminrp/post-it.excalidrawlib",
+  "https://libraries.excalidraw.com/libraries/ocapraro/bubbles.excalidrawlib",
+  // Storytelling & collaboration scenes (people / soft skills)
+  "https://libraries.excalidraw.com/libraries/drwnio/storytelling.excalidrawlib",
+  "https://libraries.excalidraw.com/libraries/gianpaima/stick-figures-collaboration.excalidrawlib",
 ];
 
 export const useEduLibrary = (
