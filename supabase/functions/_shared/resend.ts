@@ -1,5 +1,8 @@
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
-export const FROM_EMAIL = "EduDraw <hola@edudraw.chatea.click>";
+// Sender must be on a domain VERIFIED in Resend. chatea.click is verified;
+// the edudraw.chatea.click subdomain is NOT (subdomains need separate verification),
+// which is why sends from it were rejected with 403. Use the verified root.
+export const FROM_EMAIL = "EduDraw <hola@chatea.click>";
 export const SITE_URL = "https://edudraw.online";
 export const HOTMART_URL = "https://pay.hotmart.com/E105478979P";
 
