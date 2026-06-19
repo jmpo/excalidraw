@@ -180,9 +180,11 @@ Deno.serve(async (req) => {
     });
 
     // Frictionless access: auto-create the account (Pro is granted by the
-    // handle_new_user trigger reading the pending row) and email a "set your
-    // password" link. Clicking it fires PASSWORD_RECOVERY in the app → the buyer
-    // sets a password once and can log in normally from then on.
+    // handle_new_user trigger reading the pending row), then send the "set your
+    // password" email through Supabase Auth's recovery flow. We use Supabase Auth
+    // (not Resend) here because it's the channel that reliably delivers and uses
+    // the branded "reset password" template; clicking it fires PASSWORD_RECOVERY
+    // in the app → the buyer sets a password once and logs in normally after.
     const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email: buyerEmail,
       email_confirm: true,
@@ -191,16 +193,11 @@ Deno.serve(async (req) => {
       console.error("Auto-provision failed:", createErr.message);
     }
 
-    let loginLink = "https://app.edudraw.online";
-    const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
-      type: "recovery",
-      email: buyerEmail,
-      options: { redirectTo: "https://app.edudraw.online/?reset_password=1" },
+    const { error: resetErr } = await supabaseAdmin.auth.resetPasswordForEmail(buyerEmail, {
+      redirectTo: "https://app.edudraw.online/?reset_password=1",
     });
-    if (linkErr) {
-      console.warn("generateLink failed:", linkErr.message);
-    } else if (linkData?.properties?.action_link) {
-      loginLink = linkData.properties.action_link;
+    if (resetErr) {
+      console.error("resetPasswordForEmail failed:", resetErr.message);
     }
 
     await sendCapiEvent(buyerEmail, "Purchase", {
@@ -208,32 +205,7 @@ Deno.serve(async (req) => {
       currency: planCurrency ?? "USD",
     });
 
-    await sendEmail(
-      buyerEmail,
-      "¡Tu acceso Pro a EduDraw está listo! ⭐ Creá tu contraseña",
-      emailLayout(`
-        <h1 style="margin:0 0 12px;font-size:21px;font-weight:800;color:#1a1a2e;">¡Gracias por tu compra! 🎉</h1>
-        <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.6;">
-          Ya creamos tu cuenta Pro. Hacé click para <strong>definir tu contraseña</strong> y entrar.
-          Con ella vas a poder ingresar siempre que quieras.
-        </p>
-        ${btnPrimary(loginLink, "Crear contraseña y entrar →")}
-        <p style="margin:0 0 16px;font-size:13px;color:#888;line-height:1.6;">
-          Tu cuenta está asociada al email <strong>${buyerEmail}</strong>. Usá siempre ese email y tu contraseña para ingresar en <a href="https://app.edudraw.online" style="color:#6128ff;text-decoration:none;">app.edudraw.online</a>.
-        </p>
-        <table cellpadding="0" cellspacing="0" width="100%" style="background:#f0fdf4;border-radius:10px;border-left:4px solid #22c55e;padding:16px 22px;margin-bottom:20px;">
-          <tr><td>
-            <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:0.8px;">Tu plan Pro incluye</p>
-            <p style="margin:0 0 6px;font-size:14px;color:#166534;">✅ &nbsp;Dibujos y mapas mentales ilimitados</p>
-            <p style="margin:0 0 6px;font-size:14px;color:#166534;">✅ &nbsp;Asistente de IA incluido</p>
-            <p style="margin:0;font-size:14px;color:#166534;">✅ &nbsp;Exportación HD</p>
-          </td></tr>
-        </table>
-        <p style="margin:0;font-size:13px;color:#aaa;">¿Algún problema para entrar? Respondé este email y te ayudamos.</p>
-      `),
-    );
-
-    console.log(`✅ Direct purchase provisioned + magic link sent: ${buyerEmail}`);
+    console.log(`✅ Direct purchase provisioned + Supabase Auth recovery email sent: ${buyerEmail}`);
     return ok({ reason: "auto-provisioned", email: buyerEmail });
   }
 
